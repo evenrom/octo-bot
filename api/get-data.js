@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     const stateResult = await db.execute(`
       SELECT odds_weight, momentum_weight, updated_at
       FROM AlgorithmState
-      ORDER BY id DESC LIMIT 1
+      ORDER BY state_id DESC LIMIT 1
     `);
 
     // 3. Fetch all Results to calculate the global Accuracy Score

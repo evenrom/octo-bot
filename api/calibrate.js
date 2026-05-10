@@ -1,7 +1,7 @@
 import { db } from '../lib/db.js';
 import { throttledFetch } from '../lib/api-client.js';
 
-const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const FOOTBALL_API_HOST = 'v3.football.api-sports.io';
 const VARIANCE_THRESHOLD = 0.2; // 20% variance threshold
 const WEIGHT_DELTA = 0.05;
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       const stateResult = await db.execute(`
         SELECT odds_weight, momentum_weight
         FROM AlgorithmState
-        ORDER BY id DESC LIMIT 1
+        ORDER BY state_id DESC LIMIT 1
       `);
       if (stateResult.rows.length > 0) {
         oddsWeight = stateResult.rows[0].odds_weight;
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     if (matchIds.length > 0) {
         const resultRes = await throttledFetch(
             `https://${FOOTBALL_API_HOST}/fixtures?ids=${matchIds}`,
-            { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
+            { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': RAPIDAPI_KEY } }
         );
 
         if (resultRes.ok) {
