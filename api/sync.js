@@ -1,0 +1,189 @@
+import { db } from '../lib/db.js';
+import { throttledFetch } from '../lib/api-client.js';
+
+const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
+const ODDS_API_KEY = process.env.ODDS_API_KEY;
+
+// API Constants
+const FOOTBALL_API_HOST = 'v3.football.api-sports.io';
+const LEAGUE_ID = 1; // Assuming World Cup
+const SEASON = 2022; // Assuming 2022 for example, replace with current
+
+// Helper to convert form string (e.g. "WDLDW") to a score between 0 and 1
+function calculateFormScore(formStr) {
+  if (!formStr || formStr.length === 0) return 0.5;
+  let score = 0;
+  for (const char of formStr) {
+    if (char === 'W') score += 1;
+    else if (char === 'D') score += 0.5;
+  }
+  return score / formStr.length;
+}
+
+// Convert decimal odds to implied probability
+function oddsToProbability(decimalOdds) {
+    if (!decimalOdds || decimalOdds <= 0) return 0;
+    return 1 / decimalOdds;
+}
+
+export default async function handler(req, res) {
+  try {
+    // 1. Get Algorithm Weights
+    let oddsWeight = 0.5;
+    let momentumWeight = 0.5;
+
+    try {
+      const stateResult = await db.execute(`
+        SELECT odds_weight, momentum_weight
+        FROM AlgorithmState
+        ORDER BY id DESC LIMIT 1
+      `);
+      if (stateResult.rows.length > 0) {
+        oddsWeight = stateResult.rows[0].odds_weight;
+        momentumWeight = stateResult.rows[0].momentum_weight;
+      }
+    } catch (dbError) {
+        console.warn("Could not fetch AlgorithmState, using defaults:", dbError);
+    }
+
+    // 2. Fetch External Data ONCE to avoid timeouts
+    const today = new Date().toISOString().split('T')[0];
+
+    // Fetch Fixtures
+    const fixturesResponse = await throttledFetch(
+      `https://${FOOTBALL_API_HOST}/fixtures?date=${today}&league=${LEAGUE_ID}&season=${SEASON}`,
+      { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
+    );
+    if (!fixturesResponse.ok) throw new Error(`API-Football fixtures error: ${fixturesResponse.statusText}`);
+    const fixturesData = await fixturesResponse.json();
+    const fixtures = fixturesData.response || [];
+
+    // Fetch Standings (for form)
+    const standingsResponse = await throttledFetch(
+      `https://${FOOTBALL_API_HOST}/standings?league=${LEAGUE_ID}&season=${SEASON}`,
+      { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
+    );
+    const standingsData = await standingsResponse.json();
+    const forms = {}; // team_id -> form score
+    if (standingsData.response && standingsData.response.length > 0) {
+        const leagueStandings = standingsData.response[0].league.standings;
+        for (const group of leagueStandings) {
+            for (const team of group) {
+                forms[team.team.id] = calculateFormScore(team.form);
+            }
+        }
+    }
+
+    // Fetch Odds
+    const oddsRes = await throttledFetch(
+        `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
+    );
+    const oddsData = await oddsRes.json();
+
+    // 3. Process each fixture
+    for (const fixture of fixtures) {
+        const matchId = fixture.fixture.id.toString();
+        const homeTeamId = fixture.teams.home.id;
+        const awayTeamId = fixture.teams.away.id;
+        const homeTeamName = fixture.teams.home.name;
+        const awayTeamName = fixture.teams.away.name;
+        const matchDate = fixture.fixture.date;
+
+        const homeFormScore = forms[homeTeamId] !== undefined ? forms[homeTeamId] : 0.5;
+        const awayFormScore = forms[awayTeamId] !== undefined ? forms[awayTeamId] : 0.5;
+
+        let homeOdds = 2.0;
+        let awayOdds = 2.0;
+
+        // Find matching match in Odds API
+        if (Array.isArray(oddsData)) {
+            const matchOdds = oddsData.find(m =>
+                (m.home_team.includes(homeTeamName) || homeTeamName.includes(m.home_team)) &&
+                (m.away_team.includes(awayTeamName) || awayTeamName.includes(m.away_team))
+            );
+
+            if (matchOdds && matchOdds.bookmakers && matchOdds.bookmakers.length > 0) {
+                const bookmaker = matchOdds.bookmakers[0];
+                const h2hMarket = bookmaker.markets.find(m => m.key === 'h2h');
+                if (h2hMarket) {
+                    const homeOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.home_team);
+                    const awayOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.away_team);
+
+                    if (homeOutcome) homeOdds = homeOutcome.price;
+                    if (awayOutcome) awayOdds = awayOutcome.price;
+                }
+            }
+        }
+
+        const homeProb = oddsToProbability(homeOdds);
+        const awayProb = oddsToProbability(awayOdds);
+
+        // Calculate AWE Scores
+        const homeScore = (oddsWeight * homeProb) + (momentumWeight * homeFormScore);
+        const awayScore = (oddsWeight * awayProb) + (momentumWeight * awayFormScore);
+
+        // Derive prediction
+        // A simple heuristic for scores: scale AWE score to expected goals.
+        // Assuming max AWE is around 1.0 (if odds are high and form is 1.0)
+        // Average goals per game is around 1-3.
+        const predictedHomeGoals = Math.round(homeScore * 2.5);
+        const predictedAwayGoals = Math.round(awayScore * 2.5);
+
+        let prediction = 'Draw';
+        if (predictedHomeGoals > predictedAwayGoals) {
+            prediction = 'Home Win';
+        } else if (predictedAwayGoals > predictedHomeGoals) {
+            prediction = 'Away Win';
+        }
+
+        // Predicted probability is based on the dominant team's AWE
+        const predictedProb = Math.max(homeScore, awayScore);
+
+        // Insert Match
+        await db.execute({
+            sql: `INSERT INTO Matches (id, home_team, away_team, match_date)
+                  VALUES (?, ?, ?, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                  home_team = excluded.home_team,
+                  away_team = excluded.away_team,
+                  match_date = excluded.match_date`,
+            args: [matchId, homeTeamName, awayTeamName, matchDate]
+        });
+
+        // Insert Prediction (assuming Predictions table schema includes predicted_home_goals and predicted_away_goals)
+        // If the table schema doesn't have these, we could store them in predicted_outcome (e.g. '2-1') or similar.
+        // Based on the instructions, "Exact Score Match = 100", implies we must store the exact score.
+        // Assuming columns: predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals
+        try {
+            await db.execute({
+                sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals)
+                      VALUES (?, ?, ?, ?, ?)
+                      ON CONFLICT(match_id) DO UPDATE SET
+                      predicted_outcome = excluded.predicted_outcome,
+                      predicted_probability = excluded.predicted_probability,
+                      predicted_home_goals = excluded.predicted_home_goals,
+                      predicted_away_goals = excluded.predicted_away_goals`,
+                args: [matchId, prediction, predictedProb, predictedHomeGoals, predictedAwayGoals]
+            });
+        } catch (dbErr) {
+             // Fallback if schema doesn't have goal columns, storing in outcome
+             console.warn("Schema might not have goal columns, attempting fallback", dbErr.message);
+             const fallbackOutcome = `${predictedHomeGoals}-${predictedAwayGoals}`;
+             await db.execute({
+                sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability)
+                      VALUES (?, ?, ?)
+                      ON CONFLICT(match_id) DO UPDATE SET
+                      predicted_outcome = excluded.predicted_outcome,
+                      predicted_probability = excluded.predicted_probability`,
+                args: [matchId, fallbackOutcome, predictedProb]
+            });
+        }
+    }
+
+    res.status(200).json({ success: true, message: `Synced ${fixtures.length} matches.` });
+
+  } catch (error) {
+    console.error('Sync Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
