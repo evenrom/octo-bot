@@ -8,7 +8,7 @@
     <!-- Google Fonts: Space Grotesk, Sora, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Sora:wght@400;600&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Sora:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,9 +17,9 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Sora', 'sans-serif'],
-                        display: ['Space Grotesk', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
+                        'space-grotesk': ['Space Grotesk', 'sans-serif'],
+                        'sora': ['Sora', 'sans-serif'],
+                        'jetbrains-mono': ['JetBrains Mono', 'monospace'],
                     }
                 }
             }
@@ -43,26 +43,26 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col font-sans">
+<body class="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#171f33] to-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col font-sora">
 
     <!-- Top App Bar -->
-    <header class="bg-gray-800 p-4 shadow-md sticky top-0 z-50">
-        <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h1 class="text-2xl font-display font-bold tracking-tight text-blue-400">🐙 Octo-Bot</h1>
+    <header class="bg-white/5 backdrop-blur-[24px] border-b border-white/10 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 p-4">
+            <h1 class="text-2xl font-space-grotesk font-bold tracking-tight text-blue-400">🐙 Octo-Bot</h1>
 
             <div class="flex items-center gap-6">
                 <!-- Accuracy Score -->
                 <div class="flex flex-col items-center">
-                    <span class="text-xs uppercase text-gray-400 font-semibold tracking-wider">Global Accuracy</span>
-                    <span id="accuracy-score" class="text-xl font-mono font-bold text-green-400">--%</span>
+                    <span class="text-xs uppercase text-[#dae2fd]/70 font-semibold tracking-wider font-sora">Global Accuracy</span>
+                    <span id="accuracy-score" class="text-xl font-jetbrains-mono font-bold text-[#39ff14]">--%</span>
                 </div>
 
                 <!-- Manual Triggers -->
                 <div class="flex gap-2">
-                    <button id="btn-sync" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 min-w-[140px]">
+                    <button id="btn-sync" class="bg-[#39ff14] text-black active:scale-95 duration-100 px-4 py-2 rounded font-semibold text-sm transition-all flex items-center justify-center gap-2 min-w-[140px] font-sora hover:bg-[#39ff14]/90">
                         <span>FETCH FIXTURES</span>
                     </button>
-                    <button id="btn-calibrate" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 min-w-[160px]">
+                    <button id="btn-calibrate" class="bg-[#ffb77d] text-black active:scale-95 duration-100 px-4 py-2 rounded font-semibold text-sm transition-all flex items-center justify-center gap-2 min-w-[160px] font-sora hover:bg-[#ffb77d]/90">
                         <span>RESOLVE RESULTS</span>
                     </button>
                 </div>
@@ -70,37 +70,37 @@
         </div>
     </header>
 
-    <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+    <main class="flex-grow container mx-auto">
 
         <!-- Mascot Display Hero -->
-        <section class="mb-12 text-center">
-            <div id="mascot-container" class="w-48 h-48 mx-auto bg-gray-800 rounded-full flex items-center justify-center shadow-lg border-4 border-blue-500/30">
+        <section class="mt-8 mb-12 text-center">
+            <div id="mascot-container" class="w-48 h-48 mx-auto bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-full flex items-center justify-center">
                 <!-- Placeholder for future mascot animation -->
                 <span class="text-6xl">🔮</span>
             </div>
-            <div id="algorithm-status" class="mt-4 text-sm text-gray-400">
+            <div id="algorithm-status" class="mt-4 text-sm text-[#dae2fd]/70 font-sora">
                 <!-- Status text injected via JS -->
             </div>
         </section>
 
         <!-- Loading State for Initial Data -->
         <div id="main-loader" class="flex flex-col items-center justify-center py-12 hidden">
-            <div class="loader w-10 h-10 mb-4 border-t-blue-500 border-4 border-gray-700"></div>
-            <p class="text-gray-400 font-display">Consulting the oracle...</p>
+            <div class="loader w-10 h-10 mb-4 border-t-[#39ff14] border-4 border-[#171f33]"></div>
+            <p class="text-[#dae2fd]/70 font-space-grotesk">Consulting the oracle...</p>
         </div>
 
         <!-- Error Message -->
-        <div id="error-message" class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-8 hidden">
+        <div id="error-message" class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-8 hidden font-sora mx-4 lg:mx-10">
         </div>
 
         <!-- Data Grid -->
-        <section id="data-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section id="data-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 m-4 lg:m-10">
             <!-- Prediction Cards will be dynamically inserted here -->
         </section>
 
     </main>
 
-    <footer class="bg-gray-950 p-4 text-center text-sm text-gray-500 font-display">
+    <footer class="bg-[#0b1326] p-4 text-center text-sm text-[#dae2fd]/50 font-space-grotesk border-t border-white/10">
         <p>&copy; Octo-Bot Predictions. Data strictly read from Database.</p>
     </footer>
 

@@ -62,7 +62,7 @@ function renderData(data) {
     // 2. Update Algorithm Status
     if (algorithmState) {
         const updatedDate = formatDate(algorithmState.updated_at);
-        algorithmStatusEl.innerHTML = `Algorithm weights updated: ${updatedDate} | Odds: <span class="font-mono text-gray-300">${algorithmState.odds_weight}</span> | Momentum: <span class="font-mono text-gray-300">${algorithmState.momentum_weight}</span>`;
+        algorithmStatusEl.innerHTML = `Algorithm weights updated: ${updatedDate} | Odds: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.odds_weight}</span> | Momentum: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.momentum_weight}</span>`;
     } else {
         algorithmStatusEl.textContent = 'Algorithm state pending...';
     }
@@ -101,29 +101,29 @@ function createPredictionCard(prediction) {
     }
 
     const card = document.createElement('div');
-    card.className = 'bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-sm hover:border-blue-500/50 transition-colors flex flex-col';
+    card.className = 'bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-5 hover:border-[#39ff14]/40 transition-all flex flex-col';
 
     card.innerHTML = `
-        <div class="text-xs text-gray-400 mb-3 border-b border-gray-700 pb-2">${formatDate(match_date)}</div>
+        <div class="text-xs text-[#dae2fd]/70 mb-3 border-b border-white/10 pb-2 font-sora">${formatDate(match_date)}</div>
 
         <div class="flex justify-between items-center mb-4 flex-grow">
-            <div class="text-lg font-display font-bold text-center w-[40%] truncate" title="${home_team}">${home_team || 'TBD'}</div>
-            <div class="text-sm font-mono text-gray-500 w-[20%] text-center">VS</div>
-            <div class="text-lg font-display font-bold text-center w-[40%] truncate" title="${away_team}">${away_team || 'TBD'}</div>
+            <div class="text-lg font-space-grotesk font-bold text-center w-[40%] truncate" title="${home_team}">${home_team || 'TBD'}</div>
+            <div class="text-sm font-jetbrains-mono text-[#dae2fd]/50 w-[20%] text-center">VS</div>
+            <div class="text-lg font-space-grotesk font-bold text-center w-[40%] truncate" title="${away_team}">${away_team || 'TBD'}</div>
         </div>
 
-        <div class="bg-gray-900 rounded p-3 mb-4 text-center border border-gray-700">
-            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Deterministic Prediction</div>
-            <div class="text-xl font-bold text-blue-400">${predictionText}</div>
+        <div class="bg-black/20 rounded p-3 mb-4 text-center border border-white/5">
+            <div class="text-xs text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Deterministic Prediction</div>
+            <div class="text-xl font-bold text-[#39ff14] font-jetbrains-mono">${predictionText}</div>
         </div>
 
         <div class="mt-auto">
-            <div class="flex justify-between text-xs mb-1">
-                <span class="text-gray-400">Confidence</span>
-                <span class="font-mono text-blue-300">${probPercent}%</span>
+            <div class="flex justify-between text-xs mb-1 font-sora">
+                <span class="text-[#dae2fd]/70">Confidence</span>
+                <span class="font-jetbrains-mono text-[#39ff14]/80">${probPercent}%</span>
             </div>
-            <div class="w-full bg-gray-700 rounded-full h-2">
-                <div class="bg-gradient-to-r from-blue-600 to-purple-500 h-2 rounded-full" style="width: ${probPercent}%"></div>
+            <div class="w-full bg-black/30 rounded-full h-2">
+                <div class="bg-[#39ff14] h-2 rounded-full" style="width: ${probPercent}%"></div>
             </div>
         </div>
     `;
