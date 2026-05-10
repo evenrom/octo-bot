@@ -61,22 +61,28 @@ export default async function handler(req, res) {
     let weightsChanged = false;
 
     // 3. Score predictions and calibrate
-    for (const prediction of pendingPredictions) {
-        const matchId = prediction.match_id;
+    const dbStatements = [];
+    const matchIds = pendingPredictions.map(p => p.match_id).join('-');
+    let fixturesData = [];
 
-        // Fetch result from API-Football
+    if (matchIds.length > 0) {
         const resultRes = await throttledFetch(
-            `https://${FOOTBALL_API_HOST}/fixtures?id=${matchId}`,
+            `https://${FOOTBALL_API_HOST}/fixtures?ids=${matchIds}`,
             { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
         );
 
-        if (!resultRes.ok) {
-            console.error(`Failed to fetch result for match ${matchId}: ${resultRes.statusText}`);
-            continue;
+        if (resultRes.ok) {
+            const resultData = await resultRes.json();
+            fixturesData = resultData.response || [];
+        } else {
+            console.error(`Failed to fetch results for matches ${matchIds}: ${resultRes.statusText}`);
         }
+    }
 
-        const resultData = await resultRes.json();
-        const fixture = resultData.response?.[0];
+    for (const prediction of pendingPredictions) {
+        const matchId = prediction.match_id;
+
+        const fixture = fixturesData.find(f => f.fixture.id.toString() === matchId.toString());
 
         if (!fixture || fixture.fixture.status.short !== 'FT') {
             console.log(`Match ${matchId} not finished yet.`);
@@ -129,8 +135,8 @@ export default async function handler(req, res) {
             score = 0;
         }
 
-        // Insert Result
-        await db.execute({
+        // Collect Result statement
+        dbStatements.push({
             sql: `INSERT INTO Results (match_id, actual_outcome, home_goals, away_goals, score)
                   VALUES (?, ?, ?, ?, ?)
                   ON CONFLICT(match_id) DO UPDATE SET
@@ -173,11 +179,15 @@ export default async function handler(req, res) {
     }
 
     if (weightsChanged) {
-        await db.execute({
+        dbStatements.push({
             sql: `INSERT INTO AlgorithmState (odds_weight, momentum_weight, updated_at)
                   VALUES (?, ?, ?)`,
             args: [oddsWeight, momentumWeight, new Date().toISOString()]
         });
+    }
+
+    if (dbStatements.length > 0) {
+        await db.batch(dbStatements);
     }
 
     res.status(200).json({ success: true, message: `Calibrated ${pendingPredictions.length} predictions.` });

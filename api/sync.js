@@ -81,6 +81,7 @@ export default async function handler(req, res) {
     const oddsData = await oddsRes.json();
 
     // 3. Process each fixture
+    const dbStatements = [];
     for (const fixture of fixtures) {
         const matchId = fixture.fixture.id.toString();
         const homeTeamId = fixture.teams.home.id;
@@ -139,8 +140,8 @@ export default async function handler(req, res) {
         // Predicted probability is based on the dominant team's AWE
         const predictedProb = Math.max(homeScore, awayScore);
 
-        // Insert Match
-        await db.execute({
+        // Collect Match statement
+        dbStatements.push({
             sql: `INSERT INTO Matches (id, home_team, away_team, match_date)
                   VALUES (?, ?, ?, ?)
                   ON CONFLICT(id) DO UPDATE SET
@@ -150,33 +151,39 @@ export default async function handler(req, res) {
             args: [matchId, homeTeamName, awayTeamName, matchDate]
         });
 
-        // Insert Prediction (assuming Predictions table schema includes predicted_home_goals and predicted_away_goals)
-        // If the table schema doesn't have these, we could store them in predicted_outcome (e.g. '2-1') or similar.
-        // Based on the instructions, "Exact Score Match = 100", implies we must store the exact score.
-        // Assuming columns: predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals
+        // Collect Prediction statement
+        dbStatements.push({
+            sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals)
+                  VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT(match_id) DO UPDATE SET
+                  predicted_outcome = excluded.predicted_outcome,
+                  predicted_probability = excluded.predicted_probability,
+                  predicted_home_goals = excluded.predicted_home_goals,
+                  predicted_away_goals = excluded.predicted_away_goals`,
+            args: [matchId, prediction, predictedProb, predictedHomeGoals, predictedAwayGoals]
+        });
+    }
+
+    if (dbStatements.length > 0) {
         try {
-            await db.execute({
-                sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals)
-                      VALUES (?, ?, ?, ?, ?)
-                      ON CONFLICT(match_id) DO UPDATE SET
-                      predicted_outcome = excluded.predicted_outcome,
-                      predicted_probability = excluded.predicted_probability,
-                      predicted_home_goals = excluded.predicted_home_goals,
-                      predicted_away_goals = excluded.predicted_away_goals`,
-                args: [matchId, prediction, predictedProb, predictedHomeGoals, predictedAwayGoals]
-            });
+            await db.batch(dbStatements);
         } catch (dbErr) {
-             // Fallback if schema doesn't have goal columns, storing in outcome
-             console.warn("Schema might not have goal columns, attempting fallback", dbErr.message);
-             const fallbackOutcome = `${predictedHomeGoals}-${predictedAwayGoals}`;
-             await db.execute({
-                sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability)
-                      VALUES (?, ?, ?)
-                      ON CONFLICT(match_id) DO UPDATE SET
-                      predicted_outcome = excluded.predicted_outcome,
-                      predicted_probability = excluded.predicted_probability`,
-                args: [matchId, fallbackOutcome, predictedProb]
-            });
+             console.warn("Schema might not have goal columns, attempting fallback for batch", dbErr.message);
+             const fallbackStatements = [];
+             for (let i = 0; i < dbStatements.length; i += 2) {
+                 fallbackStatements.push(dbStatements[i]); // Match statement
+                 const predArgs = dbStatements[i + 1].args;
+                 const fallbackOutcome = `${predArgs[3]}-${predArgs[4]}`;
+                 fallbackStatements.push({
+                    sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability)
+                          VALUES (?, ?, ?)
+                          ON CONFLICT(match_id) DO UPDATE SET
+                          predicted_outcome = excluded.predicted_outcome,
+                          predicted_probability = excluded.predicted_probability`,
+                    args: [predArgs[0], fallbackOutcome, predArgs[2]]
+                 });
+             }
+             await db.batch(fallbackStatements);
         }
     }
 
