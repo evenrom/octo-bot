@@ -41,6 +41,24 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Mascot Sprite Animation */
+        .mascot {
+            width: 128px;
+            height: 128px;
+            background-image: url('./spritesheet.webp');
+            animation: playX 1s steps(9) infinite;
+        }
+
+        @keyframes playX {
+            from { background-position-x: 0px; }
+            to { background-position-x: -1152px; }
+        }
+
+        .state-idle { background-position-y: 0px; }
+        .state-running { background-position-y: -128px; }
+        .state-rolling { background-position-y: -768px; }
+        .state-failed { background-position-y: -896px; }
     </style>
 </head>
 <body class="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#171f33] to-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col font-sora">
@@ -74,9 +92,7 @@
 
         <!-- Mascot Display Hero -->
         <section class="mt-8 mb-12 text-center">
-            <div id="mascot-container" class="w-48 h-48 mx-auto bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-full flex items-center justify-center">
-                <!-- Placeholder for future mascot animation -->
-                <span class="text-6xl">🔮</span>
+            <div id="mascot-container" class="mascot state-idle mx-auto bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-full flex items-center justify-center">
             </div>
             <div id="algorithm-status" class="mt-4 text-sm text-[#dae2fd]/70 font-sora">
                 <!-- Status text injected via JS -->

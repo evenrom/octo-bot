@@ -19,8 +19,18 @@ const btnCalibrate = document.getElementById('btn-calibrate');
 let isSyncing = false;
 let isCalibrating = false;
 
+// Mascot State Management
+window.setMascotState = function(state) {
+    const mascotContainer = document.getElementById('mascot-container');
+    if (mascotContainer) {
+        mascotContainer.classList.remove('state-idle', 'state-running', 'state-rolling', 'state-failed');
+        mascotContainer.classList.add(`state-${state}`);
+    }
+};
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    window.setMascotState('idle');
     fetchData();
     setupEventListeners();
 });
@@ -33,6 +43,7 @@ function setupEventListeners() {
 // Fetch initial data
 async function fetchData() {
     showLoader(true);
+    window.setMascotState('running');
     hideError();
 
     try {
@@ -44,9 +55,11 @@ async function fetchData() {
 
         const data = await response.json();
         renderData(data);
+        window.setMascotState('rolling');
     } catch (error) {
         console.error("Failed to fetch data:", error);
         showError(`Failed to load predictions: ${error.message}`);
+        window.setMascotState('failed');
     } finally {
         showLoader(false);
     }
@@ -137,6 +150,7 @@ async function handleSync() {
 
     isSyncing = true;
     updateButtonState(btnSync, true, 'FETCHING...');
+    window.setMascotState('running');
     hideError();
 
     try {
@@ -147,8 +161,10 @@ async function handleSync() {
         }
         // Refresh data after successful sync
         await fetchData();
+        window.setMascotState('rolling');
     } catch (error) {
         showError(`Sync Error: ${error.message}`);
+        window.setMascotState('failed');
     } finally {
         isSyncing = false;
         updateButtonState(btnSync, false, 'FETCH FIXTURES');
@@ -161,6 +177,7 @@ async function handleCalibrate() {
 
     isCalibrating = true;
     updateButtonState(btnCalibrate, true, 'RESOLVING...');
+    window.setMascotState('running');
     hideError();
 
     try {
@@ -171,8 +188,10 @@ async function handleCalibrate() {
         }
         // Refresh data after successful calibration
         await fetchData();
+        window.setMascotState('rolling');
     } catch (error) {
         showError(`Calibrate Error: ${error.message}`);
+        window.setMascotState('failed');
     } finally {
         isCalibrating = false;
         updateButtonState(btnCalibrate, false, 'RESOLVE RESULTS');
