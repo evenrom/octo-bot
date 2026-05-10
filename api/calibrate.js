@@ -11,27 +11,20 @@ export default async function handler(req, res) {
     // 1. Fetch pending predictions where match_date has passed
     const now = new Date().toISOString();
 
-    // Attempting to fetch goal columns as well. If they don't exist, we fall back to predicted_outcome format.
+    // Fetch pending predictions where kickoff_time has passed
     let pendingResult;
     try {
         pendingResult = await db.execute({
-            sql: `SELECT p.id as prediction_id, p.match_id, p.predicted_outcome, p.predicted_probability, p.predicted_home_goals, p.predicted_away_goals, m.match_date
+            sql: `SELECT p.match_id as prediction_id, p.match_id, p.predicted_winner, p.confidence_level, p.home_win_prob, p.away_win_prob, m.kickoff_time
                   FROM Predictions p
-                  JOIN Matches m ON p.match_id = m.id
-                  LEFT JOIN Results r ON m.id = r.match_id
-                  WHERE r.id IS NULL AND m.match_date < ?`,
+                  JOIN Matches m ON p.match_id = m.match_id
+                  LEFT JOIN Results r ON m.match_id = r.match_id
+                  WHERE r.match_id IS NULL AND m.kickoff_time < ?`,
             args: [now]
         });
     } catch (e) {
-        // Fallback query if goal columns don't exist
-        pendingResult = await db.execute({
-            sql: `SELECT p.id as prediction_id, p.match_id, p.predicted_outcome, p.predicted_probability, m.match_date
-                  FROM Predictions p
-                  JOIN Matches m ON p.match_id = m.id
-                  LEFT JOIN Results r ON m.id = r.match_id
-                  WHERE r.id IS NULL AND m.match_date < ?`,
-            args: [now]
-        });
+        console.error("Database query error:", e.message);
+        return res.status(500).json({ success: false, error: e.message });
     }
 
     const pendingPredictions = pendingResult.rows;
@@ -99,7 +92,7 @@ export default async function handler(req, res) {
         // Extract predicted goals and direction
         let predictedHomeGoals = -1;
         let predictedAwayGoals = -1;
-        let predictedDirection = prediction.predicted_outcome; // default fallback
+        let predictedDirection = prediction.predicted_winner; // default fallback
 
         if (prediction.predicted_home_goals !== undefined && prediction.predicted_away_goals !== undefined) {
              predictedHomeGoals = prediction.predicted_home_goals;
@@ -108,9 +101,9 @@ export default async function handler(req, res) {
              if (predictedHomeGoals > predictedAwayGoals) predictedDirection = 'Home Win';
              else if (predictedAwayGoals > predictedHomeGoals) predictedDirection = 'Away Win';
              else predictedDirection = 'Draw';
-        } else if (prediction.predicted_outcome && prediction.predicted_outcome.includes('-')) {
+        } else if (prediction.predicted_winner && prediction.predicted_winner.includes('-')) {
              // Fallback logic: "2-1" format
-             const parts = prediction.predicted_outcome.split('-');
+             const parts = prediction.predicted_winner.split('-');
              if (parts.length === 2) {
                  predictedHomeGoals = parseInt(parts[0], 10);
                  predictedAwayGoals = parseInt(parts[1], 10);
@@ -137,21 +130,20 @@ export default async function handler(req, res) {
 
         // Collect Result statement
         dbStatements.push({
-            sql: `INSERT INTO Results (match_id, actual_outcome, home_goals, away_goals, score)
-                  VALUES (?, ?, ?, ?, ?)
+            sql: `INSERT INTO Results (match_id, home_score, away_score, accuracy_points)
+                  VALUES (?, ?, ?, ?)
                   ON CONFLICT(match_id) DO UPDATE SET
-                  actual_outcome = excluded.actual_outcome,
-                  home_goals = excluded.home_goals,
-                  away_goals = excluded.away_goals,
-                  score = excluded.score`,
-            args: [matchId, actualOutcomeDirection, homeGoals, awayGoals, score]
+                  home_score = excluded.home_score,
+                  away_score = excluded.away_score,
+                  accuracy_points = excluded.accuracy_points`,
+            args: [matchId, homeGoals, awayGoals, score]
         });
 
         // 5. Self-Correction Variance Check
         // Calculate variance between predicted probability and actual probability.
         // We consider an actual outcome to have probability 1.0 if correct direction or exact score.
         const actualProb = score >= 50 ? 1.0 : 0.0;
-        const variance = Math.abs(prediction.predicted_probability - actualProb);
+        const variance = Math.abs(prediction.confidence_level - actualProb);
 
         if (variance > VARIANCE_THRESHOLD) {
             // Adaptive Adjustment:

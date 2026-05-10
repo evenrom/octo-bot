@@ -95,6 +95,7 @@ export default async function handler(req, res) {
 
         let homeOdds = 2.0;
         let awayOdds = 2.0;
+        let drawOdds = 3.0; // Default draw odds
 
         // Find matching match in Odds API
         if (Array.isArray(oddsData)) {
@@ -109,15 +110,18 @@ export default async function handler(req, res) {
                 if (h2hMarket) {
                     const homeOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.home_team);
                     const awayOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.away_team);
+                    const drawOutcome = h2hMarket.outcomes.find(o => o.name.toLowerCase() === 'draw');
 
                     if (homeOutcome) homeOdds = homeOutcome.price;
                     if (awayOutcome) awayOdds = awayOutcome.price;
+                    if (drawOutcome) drawOdds = drawOutcome.price;
                 }
             }
         }
 
         const homeProb = oddsToProbability(homeOdds);
         const awayProb = oddsToProbability(awayOdds);
+        const drawProb = oddsToProbability(drawOdds);
 
         // Calculate AWE Scores
         const homeScore = (oddsWeight * homeProb) + (momentumWeight * homeFormScore);
@@ -140,27 +144,34 @@ export default async function handler(req, res) {
         // Predicted probability is based on the dominant team's AWE
         const predictedProb = Math.max(homeScore, awayScore);
 
+        const apiLastUpdated = new Date().toISOString();
+
         // Collect Match statement
         dbStatements.push({
-            sql: `INSERT INTO Matches (id, home_team, away_team, match_date)
-                  VALUES (?, ?, ?, ?)
-                  ON CONFLICT(id) DO UPDATE SET
+            sql: `INSERT INTO Matches (match_id, home_team, away_team, kickoff_time, home_odds, draw_odds, away_odds, api_last_updated)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  ON CONFLICT(match_id) DO UPDATE SET
                   home_team = excluded.home_team,
                   away_team = excluded.away_team,
-                  match_date = excluded.match_date`,
-            args: [matchId, homeTeamName, awayTeamName, matchDate]
+                  kickoff_time = excluded.kickoff_time,
+                  home_odds = excluded.home_odds,
+                  draw_odds = excluded.draw_odds,
+                  away_odds = excluded.away_odds,
+                  api_last_updated = excluded.api_last_updated`,
+            args: [matchId, homeTeamName, awayTeamName, matchDate, homeOdds, drawOdds, awayOdds, apiLastUpdated]
         });
 
         // Collect Prediction statement
         dbStatements.push({
-            sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability, predicted_home_goals, predicted_away_goals)
-                  VALUES (?, ?, ?, ?, ?)
+            sql: `INSERT INTO Predictions (match_id, predicted_winner, confidence_level, home_win_prob, draw_prob, away_win_prob)
+                  VALUES (?, ?, ?, ?, ?, ?)
                   ON CONFLICT(match_id) DO UPDATE SET
-                  predicted_outcome = excluded.predicted_outcome,
-                  predicted_probability = excluded.predicted_probability,
-                  predicted_home_goals = excluded.predicted_home_goals,
-                  predicted_away_goals = excluded.predicted_away_goals`,
-            args: [matchId, prediction, predictedProb, predictedHomeGoals, predictedAwayGoals]
+                  predicted_winner = excluded.predicted_winner,
+                  confidence_level = excluded.confidence_level,
+                  home_win_prob = excluded.home_win_prob,
+                  draw_prob = excluded.draw_prob,
+                  away_win_prob = excluded.away_win_prob`,
+            args: [matchId, prediction, predictedProb, homeProb, drawProb, awayProb]
         });
     }
 
@@ -168,22 +179,7 @@ export default async function handler(req, res) {
         try {
             await db.batch(dbStatements);
         } catch (dbErr) {
-             console.warn("Schema might not have goal columns, attempting fallback for batch", dbErr.message);
-             const fallbackStatements = [];
-             for (let i = 0; i < dbStatements.length; i += 2) {
-                 fallbackStatements.push(dbStatements[i]); // Match statement
-                 const predArgs = dbStatements[i + 1].args;
-                 const fallbackOutcome = `${predArgs[3]}-${predArgs[4]}`;
-                 fallbackStatements.push({
-                    sql: `INSERT INTO Predictions (match_id, predicted_outcome, predicted_probability)
-                          VALUES (?, ?, ?)
-                          ON CONFLICT(match_id) DO UPDATE SET
-                          predicted_outcome = excluded.predicted_outcome,
-                          predicted_probability = excluded.predicted_probability`,
-                    args: [predArgs[0], fallbackOutcome, predArgs[2]]
-                 });
-             }
-             await db.batch(fallbackStatements);
+             console.error("Database batch error:", dbErr.message);
         }
     }
 

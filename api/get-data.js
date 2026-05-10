@@ -3,21 +3,19 @@ import { db } from '../lib/db.js';
 export default async function handler(req, res) {
   try {
     // 1. Fetch Predictions joined with Matches
-    // Ensure we fetch id, home_team, away_team, match_date, predicted_outcome, predicted_probability
+    // Ensure we fetch match_id, home_team, away_team, kickoff_time, predicted_winner, confidence_level
     const predictionsResult = await db.execute(`
       SELECT
-        p.id as prediction_id,
+        p.match_id as prediction_id,
         p.match_id,
-        p.predicted_outcome,
-        p.predicted_probability,
-        p.predicted_home_goals,
-        p.predicted_away_goals,
+        p.predicted_winner as predicted_outcome,
+        p.confidence_level as predicted_probability,
         m.home_team,
         m.away_team,
-        m.match_date
+        m.kickoff_time as match_date
       FROM Predictions p
-      JOIN Matches m ON p.match_id = m.id
-      ORDER BY m.match_date ASC
+      JOIN Matches m ON p.match_id = m.match_id
+      ORDER BY m.kickoff_time ASC
     `);
 
     // 2. Fetch Latest Algorithm State
@@ -29,16 +27,16 @@ export default async function handler(req, res) {
 
     // 3. Fetch all Results to calculate the global Accuracy Score
     const resultsResult = await db.execute(`
-      SELECT score
+      SELECT accuracy_points
       FROM Results
-      WHERE score IS NOT NULL
+      WHERE accuracy_points IS NOT NULL
     `);
 
     // Calculate global accuracy score
     const totalResults = resultsResult.rows.length;
     let globalAccuracyScore = 0;
     if (totalResults > 0) {
-        const totalScore = resultsResult.rows.reduce((sum, row) => sum + row.score, 0);
+        const totalScore = resultsResult.rows.reduce((sum, row) => sum + row.accuracy_points, 0);
         // Assuming score represents accuracy per match (e.g., 0 to 1)
         globalAccuracyScore = Math.round((totalScore / totalResults) * 100);
     }
