@@ -22,9 +22,7 @@ let currentFrame = 0;
 let mascotAnimationInterval = null;
 
 // --- HTML5 Canvas Mascot Engine ---
-let currentFrame = 0;
 let mascotStateY = 0; // 0=idle, 256=running, 1536=rolling, 1792=failed
-let mascotAnimationInterval = null;
 
 const spriteImage = new Image();
 spriteImage.src = './spritesheet.webp'; // טוען את התמונה לזיכרון
