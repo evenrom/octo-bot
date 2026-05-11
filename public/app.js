@@ -18,18 +18,42 @@ const btnCalibrate = document.getElementById('btn-calibrate');
 // State
 let isSyncing = false;
 let isCalibrating = false;
+let currentFrame = 0;
+let mascotAnimationInterval = null;
+
+function startMascotFrameEngine() {
+    mascotAnimationInterval = setInterval(() => {
+        currentFrame++;
+        if (currentFrame > 8) currentFrame = 0;
+        const posX = currentFrame * -256;
+        const mascotEl = document.getElementById('mascot');
+        if (mascotEl) {
+            mascotEl.style.backgroundPositionX = `${posX}px`;
+        }
+    }, 100);
+}
 
 // Mascot State Management
 window.setMascotState = function(state) {
     const mascotEl = document.getElementById('mascot');
     if (mascotEl) {
-        mascotEl.classList.remove('state-idle', 'state-running', 'state-rolling', 'state-failed');
-        mascotEl.classList.add(`state-${state}`);
+        let offsetY = 0;
+        if (state === 'idle') {
+            offsetY = 0;
+        } else if (state === 'running') {
+            offsetY = -256;
+        } else if (state === 'rolling') {
+            offsetY = -1536;
+        } else if (state === 'failed') {
+            offsetY = -1792;
+        }
+        mascotEl.style.backgroundPositionY = `${offsetY}px`;
     }
 };
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    startMascotFrameEngine();
     window.setMascotState('idle');
     fetchData();
     setupEventListeners();
@@ -39,9 +63,9 @@ function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
     btnCalibrate.addEventListener('click', handleCalibrate);
 
-    const mascotViewport = document.getElementById('mascot-viewport');
-    if (mascotViewport) {
-        mascotViewport.addEventListener('click', () => {
+    const mascot = document.getElementById('mascot');
+    if (mascot) {
+        mascot.addEventListener('click', () => {
             if (isSyncing || isCalibrating) return;
             window.setMascotState('running');
             setTimeout(() => {

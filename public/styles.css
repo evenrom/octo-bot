@@ -14,37 +14,16 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Mascot Viewport */
-.mascot-viewport {
+/* Mascot */
+.mascot {
     width: 256px;
     height: 256px;
-    margin: 0 auto;
-    overflow: hidden;
-    position: relative;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
-.mascot-viewport:hover {
-    transform: scale(1.05);
-}
-
-/* Mascot Strip */
-.mascot-strip {
-    width: 2304px;
-    height: 2304px;
     background-image: url('./spritesheet.webp');
     background-size: 2304px 2304px;
     background-repeat: no-repeat;
-    animation: moveStrip 0.8s steps(9, end) infinite;
+    cursor: pointer;
+    transition: transform 0.2s ease;
 }
-
-/* Y-Axis States */
-.state-idle { background-position-y: 0px; }
-.state-running { background-position-y: -256px; }
-.state-rolling { background-position-y: -1536px; }
-.state-failed { background-position-y: -1792px; }
-
-@keyframes moveStrip {
-    from { transform: translateX(0px); }
-    to { transform: translateX(-2304px); }
+.mascot:hover {
+    transform: scale(1.05);
 }
