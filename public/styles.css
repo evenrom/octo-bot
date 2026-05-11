@@ -22,7 +22,9 @@
     background-size: 2304px 2304px;
     background-repeat: no-repeat;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    /* הפקודה שחוסמת את Tailwind מלהחליק את הרקע! */
+    transition-property: transform !important; 
+    transition-duration: 0.2s;
 }
 .mascot:hover {
     transform: scale(1.05);
