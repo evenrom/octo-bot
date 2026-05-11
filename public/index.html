@@ -42,41 +42,44 @@
             100% { transform: rotate(360deg); }
         }
 
-/* --- Optimized Mascot CSS (Manual Override) --- */
+/* --- Absolute Pixel Mascot Animation --- */
+        .mascot-wrapper {
+            width: 256px;
+            height: 256px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
 
-.mascot-wrapper {
-    /* New viewing size: 256x256 (Large) */
-    width: 256px;
-    height: 256px;
-    margin: 0 auto;
-    overflow: hidden;
-    /* Ensure no residual background from circle is here */
-}
+        .mascot {
+            width: 100%;
+            height: 100%;
+            background-image: url('./spritesheet.webp');
+            /* רוחב וגובה מוחלטים: 256 פיקסלים כפול 9 פריימים = 2304 */
+            background-size: 2304px 2304px; 
+            background-repeat: no-repeat;
+            
+            /* steps(9, end) מבטיח 9 קפיצות חדות במקום, ללא שום החלקה */
+            animation: playX 0.9s steps(9, end) infinite;
+            cursor: pointer;
+        }
 
-.mascot {
-    width: 100%;
-    height: 100%;
-    background-image: url('./spritesheet.webp');
-    background-size: 2304px 2304px;
-    background-repeat: no-repeat;
-    animation: playX 0.8s steps(9) infinite;
-    cursor: pointer;
-    transition: transform 0.3s ease;
-}
+        .mascot:hover {
+            transform: scale(1.05); /* הגדלה עדינה במעבר עכבר */
+            transition: transform 0.2s ease;
+        }
 
-.mascot:hover {
-    transform: scale(1.1) rotate(2deg);
-}
+        /* אנימציית ציר ה-X בלבד: מהפריים הראשון לאחרון */
+        @keyframes playX {
+            0% { background-position-x: 0px; }
+            100% { background-position-x: -2304px; }
+        }
 
-@keyframes playX {
-    from { background-position-x: 0px; }
-    to { background-position-x: -2304px; }
-}
-
-.state-idle { background-position-y: 0px; }
-.state-running { background-position-y: -256px; }
-.state-rolling { background-position-y: -1536px; }
-.state-failed { background-position-y: -1792px; }    </style>
+        /* מיקומים מוחלטים על ציר ה-Y לפי שורות (כל שורה היא קפיצה של 256px) */
+        .state-idle { background-position-y: 0px; }             /* שורה 1 */
+        .state-running { background-position-y: -256px; }       /* שורה 2 */
+        .state-rolling { background-position-y: -1536px; }      /* שורה 7 */
+        .state-failed { background-position-y: -1792px; }       /* שורה 8 */    
+    </style>
 </head>
 <body class="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#171f33] to-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col font-sora">
 
