@@ -22,10 +22,8 @@ let currentFrame = 0;
 let mascotAnimationInterval = null;
 
 // --- HTML5 Canvas Mascot Engine ---
-let currentFrame = 0;
 // המיקומים המעודכנים לפי רשת של 128 פיקסלים:
 let mascotStateY = 0; // 0=idle, 128=running, 768=rolling, 896=failed
-let mascotAnimationInterval = null;
 
 const spriteImage = new Image();
 spriteImage.src = './spritesheet.webp'; // טוען את התמונה לזיכרון
