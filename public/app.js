@@ -18,33 +18,31 @@ const btnCalibrate = document.getElementById('btn-calibrate');
 // State
 let isSyncing = false;
 let isCalibrating = false;
-let currentFrame = 0;
-let mascotAnimationInterval = null;
 
 // --- HTML5 Canvas Mascot Engine ---
-// המיקומים המעודכנים לפי רשת של 128 פיקסלים:
+let currentFrame = 0;
+let mascotAnimationInterval = null;
+// מרווחים לפי 128 פיקסלים (הגודל האמיתי של כל פריים בתמונה)
 let mascotStateY = 0; // 0=idle, 128=running, 768=rolling, 896=failed
 
 const spriteImage = new Image();
-spriteImage.src = './spritesheet.webp'; // טוען את התמונה לזיכרון
+spriteImage.src = './spritesheet.webp'; 
 
 function drawMascot() {
     const canvas = document.getElementById('mascot-canvas');
     if (!canvas || !spriteImage.complete) return;
     const ctx = canvas.getContext('2d');
     
-    // מונע טשטוש כשאנחנו מגדילים את הפיקסל ארט פי 2
+    // שומר על חדות הפיקסלים (מונע טשטוש בהגדלה)
     ctx.imageSmoothingEnabled = false;
     
-    // מנקה את הציור הקודם
+    // מנקה את הציור הקודם לחלוטין
     ctx.clearRect(0, 0, 256, 256);
     
-    // מצייר: לוקח 128x128 מהתמונה המקורית, ומצייר את זה בגודל 256x256 על הקנבס
-    // drawImage(image, sourceX, sourceY, sourceW, sourceH, destX, destY, destW, destH)
+    // חותך 128x128, ומצייר בגודל 256x256 על הקנבס. אפס סרט נע!
     ctx.drawImage(spriteImage, currentFrame * 128, mascotStateY, 128, 128, 0, 0, 256, 256);
 }
 
-// מתחיל את הציור הראשוני רק כשהתמונה נטענה
 spriteImage.onload = () => {
     drawMascot();
 };
@@ -54,17 +52,17 @@ function startMascotFrameEngine() {
     mascotAnimationInterval = setInterval(() => {
         currentFrame++;
         if (currentFrame > 8) currentFrame = 0;
-        drawMascot(); 
-    }, 100); // 100ms = אנימציה מהירה וקופצנית
+        drawMascot(); // קפיצה חדה כל 100 מילי-שניות
+    }, 100);
 }
 
 // Mascot State Management
 window.setMascotState = function(state) {
     if (state === 'idle') mascotStateY = 0;
-    else if (state === 'running') mascotStateY = 128; // שורה 2
-    else if (state === 'rolling') mascotStateY = 768; // שורה 7
-    else if (state === 'failed') mascotStateY = 896;  // שורה 8
-    drawMascot(); // מעדכן מיד עם שינוי סטטוס
+    else if (state === 'running') mascotStateY = 128;
+    else if (state === 'rolling') mascotStateY = 768;
+    else if (state === 'failed') mascotStateY = 896;
+    drawMascot(); 
 };
 
 // Initialize app
