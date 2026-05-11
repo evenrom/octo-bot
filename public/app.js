@@ -28,7 +28,7 @@ function startMascotFrameEngine() {
         const posX = currentFrame * -256;
         const mascotEl = document.getElementById('mascot');
         if (mascotEl) {
-            mascotEl.style.backgroundPositionX = `${posX}px`;
+            mascotEl.style.left = `${posX}px`;
         }
     }, 100);
 }
@@ -47,7 +47,7 @@ window.setMascotState = function(state) {
         } else if (state === 'failed') {
             offsetY = -1792;
         }
-        mascotEl.style.backgroundPositionY = `${offsetY}px`;
+        mascotEl.style.top = `${offsetY}px`;
     }
 };
 

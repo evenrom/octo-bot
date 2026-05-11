@@ -60,9 +60,11 @@
     <main class="flex-grow container mx-auto">
 
 <section class="mt-8 mb-12 flex flex-col justify-center items-center">
-        <div id="mascot" class="mascot mx-auto"></div>
+        <div style="width: 256px; height: 256px; overflow: hidden; cursor: pointer; position: relative;">
+            <img id="mascot" src="./spritesheet.webp" style="position: absolute; left: 0px; top: 0px; width: 2304px; height: 2304px; max-width: none !important; transition: none !important;" alt="Octo-Bot" />
+        </div>
         <div id="algorithm-status" class="mt-4 text-sm text-[#dae2fd]/70 font-sora">
-            </div>
+        </div>
     </section>
     
         <!-- Loading State for Initial Data -->
