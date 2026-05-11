@@ -39,13 +39,15 @@ function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
     btnCalibrate.addEventListener('click', handleCalibrate);
 
-    const mascot = document.getElementById('mascot');
-    if (mascot) {
-        mascot.addEventListener('click', () => {
+    const mascotViewport = document.getElementById('mascot-viewport');
+    if (mascotViewport) {
+        mascotViewport.addEventListener('click', () => {
             if (isSyncing || isCalibrating) return;
             window.setMascotState('running');
             setTimeout(() => {
-                window.setMascotState('idle');
+                if (!isSyncing && !isCalibrating) {
+                    window.setMascotState('idle');
+                }
             }, 3500);
         });
     }

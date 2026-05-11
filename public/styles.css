@@ -14,46 +14,37 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Mascot Wrapper */
-.mascot-wrapper {
+/* Mascot Viewport */
+.mascot-viewport {
     width: 256px;
     height: 256px;
     margin: 0 auto;
     overflow: hidden;
+    position: relative;
     cursor: pointer;
     transition: transform 0.2s ease;
 }
-.mascot-wrapper:hover {
-    transform: scale(1.05); /* הגדלה עדינה בעכבר */
+.mascot-viewport:hover {
+    transform: scale(1.05);
 }
 
-/* Mascot Sprite */
-.mascot {
-    width: 256px;
-    height: 256px;
+/* Mascot Strip */
+.mascot-strip {
+    width: 2304px;
+    height: 2304px;
     background-image: url('./spritesheet.webp');
     background-size: 2304px 2304px;
     background-repeat: no-repeat;
-    /* שימוש בליניארי, אך הפריימים עצמם קופצים בחדות */
-    animation: forceFrames 0.8s linear infinite;
+    animation: moveStrip 0.8s steps(9, end) infinite;
 }
 
-/* Y-Axis States - מצבי הרוח */
-.mascot.state-idle { background-position-y: 0px; }
-.mascot.state-running { background-position-y: -256px; }
-.mascot.state-rolling { background-position-y: -1536px; }
-.mascot.state-failed { background-position-y: -1792px; }
+/* Y-Axis States */
+.state-idle { background-position-y: 0px; }
+.state-running { background-position-y: -256px; }
+.state-rolling { background-position-y: -1536px; }
+.state-failed { background-position-y: -1792px; }
 
-/* Hardcoded X-Axis Frames - נועל את התמונה במקום בכל פריים */
-@keyframes forceFrames {
-    0%, 11.10%      { background-position-x: 0px; }
-    11.11%, 22.21%  { background-position-x: -256px; }
-    22.22%, 33.32%  { background-position-x: -512px; }
-    33.33%, 44.43%  { background-position-x: -768px; }
-    44.44%, 55.54%  { background-position-x: -1024px; }
-    55.55%, 66.65%  { background-position-x: -1280px; }
-    66.66%, 77.76%  { background-position-x: -1536px; }
-    77.77%, 88.87%  { background-position-x: -1792px; }
-    88.88%, 99.99%  { background-position-x: -2048px; }
-    100%            { background-position-x: 0px; }
+@keyframes moveStrip {
+    from { transform: translateX(0px); }
+    to { transform: translateX(-2304px); }
 }
