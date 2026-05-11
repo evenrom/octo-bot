@@ -21,34 +21,48 @@ let isCalibrating = false;
 let currentFrame = 0;
 let mascotAnimationInterval = null;
 
+// --- HTML5 Canvas Mascot Engine ---
+let currentFrame = 0;
+let mascotStateY = 0; // 0=idle, 256=running, 1536=rolling, 1792=failed
+let mascotAnimationInterval = null;
+
+const spriteImage = new Image();
+spriteImage.src = './spritesheet.webp'; // טוען את התמונה לזיכרון
+
+function drawMascot() {
+    const canvas = document.getElementById('mascot-canvas');
+    if (!canvas || !spriteImage.complete) return;
+    const ctx = canvas.getContext('2d');
+    
+    // מנקה את הציור הקודם
+    ctx.clearRect(0, 0, 256, 256);
+    
+    // מצייר רק את החיתוך הספציפי שרלוונטי לפריים ולמצב הרוח
+    // drawImage(image, sourceX, sourceY, sourceW, sourceH, destX, destY, destW, destH)
+    ctx.drawImage(spriteImage, currentFrame * 256, mascotStateY, 256, 256, 0, 0, 256, 256);
+}
+
+// מתחיל את הציור הראשוני רק כשהתמונה נטענה
+spriteImage.onload = () => {
+    drawMascot();
+};
+
 function startMascotFrameEngine() {
+    if (mascotAnimationInterval) clearInterval(mascotAnimationInterval);
     mascotAnimationInterval = setInterval(() => {
         currentFrame++;
         if (currentFrame > 8) currentFrame = 0;
-        const posX = currentFrame * -256;
-        const mascotEl = document.getElementById('mascot');
-        if (mascotEl) {
-            mascotEl.style.left = `${posX}px`;
-        }
+        drawMascot(); // מצייר מחדש כל 100 מילי-שניות
     }, 100);
 }
 
 // Mascot State Management
 window.setMascotState = function(state) {
-    const mascotEl = document.getElementById('mascot');
-    if (mascotEl) {
-        let offsetY = 0;
-        if (state === 'idle') {
-            offsetY = 0;
-        } else if (state === 'running') {
-            offsetY = -256;
-        } else if (state === 'rolling') {
-            offsetY = -1536;
-        } else if (state === 'failed') {
-            offsetY = -1792;
-        }
-        mascotEl.style.top = `${offsetY}px`;
-    }
+    if (state === 'idle') mascotStateY = 0;
+    else if (state === 'running') mascotStateY = 256;
+    else if (state === 'rolling') mascotStateY = 1536;
+    else if (state === 'failed') mascotStateY = 1792;
+    drawMascot(); // מעדכן את הציור מיד עם שינוי הסטטוס
 };
 
 // Initialize app
@@ -63,9 +77,9 @@ function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
     btnCalibrate.addEventListener('click', handleCalibrate);
 
-    const mascot = document.getElementById('mascot');
-    if (mascot) {
-        mascot.addEventListener('click', () => {
+    const mascotEl = document.getElementById('mascot-canvas');
+    if (mascotEl) {
+        mascotEl.addEventListener('click', () => {
             if (isSyncing || isCalibrating) return;
             window.setMascotState('running');
             setTimeout(() => {

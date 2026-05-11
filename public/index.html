@@ -60,9 +60,7 @@
     <main class="flex-grow container mx-auto">
 
 <section class="mt-8 mb-12 flex flex-col justify-center items-center">
-        <div style="width: 256px; height: 256px; overflow: hidden; cursor: pointer; position: relative;">
-            <img id="mascot" src="./spritesheet.webp" style="position: absolute; left: 0px; top: 0px; width: 2304px; height: 2304px; max-width: none !important; transition: none !important;" alt="Octo-Bot" />
-        </div>
+        <canvas id="mascot-canvas" width="256" height="256" class="cursor-pointer transition-transform duration-200 hover:scale-105 mx-auto"></canvas>
         <div id="algorithm-status" class="mt-4 text-sm text-[#dae2fd]/70 font-sora">
         </div>
     </section>
