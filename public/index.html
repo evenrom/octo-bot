@@ -57,30 +57,26 @@
     width: 100%;
     height: 100%;
     background-image: url('./spritesheet.webp');
-    /* CRITICAL FIX: Total sheet size must be (VIEW_WIDTH * 9 frames) */
-    background-size: 2304px 2304px; /* 256 * 9 = 2304 */
+    background-size: 900% 900%;
     background-repeat: no-repeat;
-    /* Smooth but stepped animation: 1.5s steps(9) infinite */
-    animation: playX 1.5s steps(9) infinite;
+    animation: playX 0.8s steps(8) infinite;
     cursor: pointer;
     transition: transform 0.3s ease;
 }
 
 .mascot:hover {
-    transform: scale(1.1); /* Cute pop-up on hover */
+    transform: scale(1.1) rotate(2deg);
 }
 
 @keyframes playX {
     from { background-position-x: 0px; }
-    /* CRITICAL FIX: End position must be -(VIEW_WIDTH * 9) */
-    to { background-position-x: -2304px; }
+    to { background-position-x: 100%; }
 }
 
-/* Updated Y-Axis positions for 256px height based on Codex Atlas */
-.state-idle { background-position-y: 0px; }            /* Row 1 */
-.state-running { background-position-y: -256px; }      /* Row 2 (1 * 256) */
-.state-rolling { background-position-y: -1536px; }     /* Row 7 (6 * 256) */
-.state-failed { background-position-y: -1792px; }      /* Row 8 (7 * 256) */    </style>
+.state-idle { background-position-y: 0%; }
+.state-running { background-position-y: 12.5%; }
+.state-rolling { background-position-y: 75%; }
+.state-failed { background-position-y: 87.5%; }    </style>
 </head>
 <body class="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#171f33] to-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col font-sora">
 

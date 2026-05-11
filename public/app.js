@@ -38,6 +38,17 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
     btnCalibrate.addEventListener('click', handleCalibrate);
+
+    const mascot = document.getElementById('mascot');
+    if (mascot) {
+        mascot.addEventListener('click', () => {
+            if (isSyncing || isCalibrating) return;
+            window.setMascotState('running');
+            setTimeout(() => {
+                window.setMascotState('idle');
+            }, 3500);
+        });
+    }
 }
 
 // Fetch initial data
