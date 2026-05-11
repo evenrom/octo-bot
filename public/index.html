@@ -42,43 +42,49 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* --- Hardware-Accelerated Mascot Sprite --- */
+        /* --- BULLETPROOF MASCOT SPRITE --- */
         .mascot-wrapper {
             width: 256px;
             height: 256px;
             margin: 0 auto;
-            overflow: hidden; /* חור ההצצה שלנו - מסתיר את שאר התמונה */
+            overflow: hidden;
+        }
+
+        .mascot {
+            width: 256px;
+            height: 256px;
+            background-image: url('./spritesheet.webp');
+            background-size: 2304px 2304px; /* רוחב וגובה מוחלטים של כל הגיליון */
+            background-repeat: no-repeat;
+            
+            /* step-end אוסר על הדפדפן להחליק את האנימציה בשום מצב */
+            animation: playFrames 0.9s step-end infinite;
             cursor: pointer;
             transition: transform 0.2s ease;
         }
 
-        .mascot-wrapper:hover {
-            transform: scale(1.05); /* אפקט הריחוף הועבר לעטיפה כדי לא להפריע לאנימציה */
+        .mascot:hover {
+            transform: scale(1.05); /* הגדלה עדינה במעבר עכבר ללא פגיעה במיקום הרקע */
         }
 
-        .mascot {
-            width: 2304px; /* הרוחב המלא של כל 9 הפריימים יחד */
-            height: 2304px; /* הגובה המלא */
-            background-image: url('./spritesheet.webp');
-            background-size: 2304px 2304px;
-            background-repeat: no-repeat;
-            
-            /* שימוש ב-transform מבטיח קפיצות פיקסלים נקיות דרך הכרטיס הגרפי */
-            animation: playX 0.9s steps(9) infinite;
-            
-            /* הסרת כל transition שעשוי לגרום להחלקת האנימציה */
-            transition: none !important; 
-        }
+        /* מיקומי השורות בציר ה-Y בלבד */
+        .state-idle { background-position-y: 0px; }
+        .state-running { background-position-y: -256px; }
+        .state-rolling { background-position-y: -1536px; }
+        .state-failed { background-position-y: -1792px; }
 
-        /* השליטה בציר ה-Y מתבצעת כעת על ידי משיכת התמונה למעלה (margin) */
-        .state-idle { margin-top: 0px; }
-        .state-running { margin-top: -256px; }
-        .state-rolling { margin-top: -1536px; }
-        .state-failed { margin-top: -1792px; }
-
-        @keyframes playX {
-            from { transform: translateX(0px); }
-            to { transform: translateX(-2304px); }
+        /* קביעה ידנית מוחלטת של כל 9 הפריימים על ציר ה-X - אפס יכולת החלקה */
+        @keyframes playFrames {
+            0% { background-position-x: 0px; }
+            11.11% { background-position-x: -256px; }
+            22.22% { background-position-x: -512px; }
+            33.33% { background-position-x: -768px; }
+            44.44% { background-position-x: -1024px; }
+            55.55% { background-position-x: -1280px; }
+            66.66% { background-position-x: -1536px; }
+            77.77% { background-position-x: -1792px; }
+            88.88% { background-position-x: -2048px; }
+            100% { background-position-x: 0px; }
         }
     </style>
 </head>
