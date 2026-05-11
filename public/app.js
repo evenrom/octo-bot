@@ -21,10 +21,10 @@ let isCalibrating = false;
 
 // Mascot State Management
 window.setMascotState = function(state) {
-    const mascotContainer = document.getElementById('mascot-container');
-    if (mascotContainer) {
-        mascotContainer.classList.remove('state-idle', 'state-running', 'state-rolling', 'state-failed');
-        mascotContainer.classList.add(`state-${state}`);
+    const mascotEl = document.getElementById('mascot');
+    if (mascotEl) {
+        mascotEl.classList.remove('state-idle', 'state-running', 'state-rolling', 'state-failed');
+        mascotEl.classList.add(`state-${state}`);
     }
 };
 

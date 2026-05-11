@@ -25,69 +25,10 @@
             }
         }
     </script>
-    <style>
-/* Custom Loading Spinner */
-        .loader {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #ffffff;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+ 
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./styles.css">
 
-        /* --- THE NUCLEAR OPTION: HARD-CODED FRAMES --- */
-        .mascot-wrapper {
-            width: 256px;
-            height: 256px;
-            margin: 0 auto;
-            overflow: hidden;
-        }
-
-        .mascot {
-            width: 256px;
-            height: 256px;
-            background-image: url('./spritesheet.webp'); /* ודא שהסיומת נכונה אצלך */
-            background-size: 2304px 2304px;
-            background-repeat: no-repeat;
-            
-            /* שימוש ב-linear! אבל ה-keyframes עצמם ינעלו את התמונה במקום */
-            animation: playFrames 0.8s linear infinite;
-            cursor: pointer;
-            transition: none !important;
-        }
-
-        .mascot:hover {
-            transform: scale(1.05);
-        }
-
-        /* משתנה CSS שנועל את ציר ה-Y */
-        .state-idle { --posY: 0px; }
-        .state-running { --posY: -256px; }
-        .state-rolling { --posY: -1536px; }
-        .state-failed { --posY: -1792px; }
-
-        /* קביעה ידנית של כל פריים ופריים. 
-           התמונה נשארת סטטית למשך 11%, וקופצת בבת אחת לפריים הבא. */
-        @keyframes playFrames {
-            0%, 11.10%      { background-position: 0px var(--posY); }
-            11.11%, 22.21%  { background-position: -256px var(--posY); }
-            22.22%, 33.32%  { background-position: -512px var(--posY); }
-            33.33%, 44.43%  { background-position: -768px var(--posY); }
-            44.44%, 55.54%  { background-position: -1024px var(--posY); }
-            55.55%, 66.65%  { background-position: -1280px var(--posY); }
-            66.66%, 77.76%  { background-position: -1536px var(--posY); }
-            77.77%, 88.87%  { background-position: -1792px var(--posY); }
-            88.88%, 99.99%  { background-position: -2048px var(--posY); }
-            100%            { background-position: 0px var(--posY); }
-        }
-    </style>
 </head>
 <body class="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#171f33] to-[#0b1326] text-[#dae2fd] min-h-screen flex flex-col font-sora">
 

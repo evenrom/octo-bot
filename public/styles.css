@@ -1,0 +1,59 @@
+/* Custom Loading Spinner */
+.loader {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid #ffffff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Mascot Wrapper */
+.mascot-wrapper {
+    width: 256px;
+    height: 256px;
+    margin: 0 auto;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+.mascot-wrapper:hover {
+    transform: scale(1.05); /* הגדלה עדינה בעכבר */
+}
+
+/* Mascot Sprite */
+.mascot {
+    width: 256px;
+    height: 256px;
+    background-image: url('./spritesheet.webp');
+    background-size: 2304px 2304px;
+    background-repeat: no-repeat;
+    /* שימוש בליניארי, אך הפריימים עצמם קופצים בחדות */
+    animation: forceFrames 0.8s linear infinite;
+}
+
+/* Y-Axis States - מצבי הרוח */
+.mascot.state-idle { background-position-y: 0px; }
+.mascot.state-running { background-position-y: -256px; }
+.mascot.state-rolling { background-position-y: -1536px; }
+.mascot.state-failed { background-position-y: -1792px; }
+
+/* Hardcoded X-Axis Frames - נועל את התמונה במקום בכל פריים */
+@keyframes forceFrames {
+    0%, 11.10%      { background-position-x: 0px; }
+    11.11%, 22.21%  { background-position-x: -256px; }
+    22.22%, 33.32%  { background-position-x: -512px; }
+    33.33%, 44.43%  { background-position-x: -768px; }
+    44.44%, 55.54%  { background-position-x: -1024px; }
+    55.55%, 66.65%  { background-position-x: -1280px; }
+    66.66%, 77.76%  { background-position-x: -1536px; }
+    77.77%, 88.87%  { background-position-x: -1792px; }
+    88.88%, 99.99%  { background-position-x: -2048px; }
+    100%            { background-position-x: 0px; }
+}
