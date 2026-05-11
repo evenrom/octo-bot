@@ -42,7 +42,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* --- BULLETPROOF MASCOT SPRITE --- */
+        /* --- THE NUCLEAR OPTION: HARD-CODED FRAMES --- */
         .mascot-wrapper {
             width: 256px;
             height: 256px;
@@ -53,38 +53,39 @@
         .mascot {
             width: 256px;
             height: 256px;
-            background-image: url('./spritesheet.webp');
-            background-size: 2304px 2304px; /* רוחב וגובה מוחלטים של כל הגיליון */
+            background-image: url('./spritesheet.webp'); /* ודא שהסיומת נכונה אצלך */
+            background-size: 2304px 2304px;
             background-repeat: no-repeat;
             
-            /* step-end אוסר על הדפדפן להחליק את האנימציה בשום מצב */
-            animation: playFrames 0.9s step-end infinite;
+            /* שימוש ב-linear! אבל ה-keyframes עצמם ינעלו את התמונה במקום */
+            animation: playFrames 0.8s linear infinite;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: none !important;
         }
 
         .mascot:hover {
-            transform: scale(1.05); /* הגדלה עדינה במעבר עכבר ללא פגיעה במיקום הרקע */
+            transform: scale(1.05);
         }
 
-        /* מיקומי השורות בציר ה-Y בלבד */
-        .state-idle { background-position-y: 0px; }
-        .state-running { background-position-y: -256px; }
-        .state-rolling { background-position-y: -1536px; }
-        .state-failed { background-position-y: -1792px; }
+        /* משתנה CSS שנועל את ציר ה-Y */
+        .state-idle { --posY: 0px; }
+        .state-running { --posY: -256px; }
+        .state-rolling { --posY: -1536px; }
+        .state-failed { --posY: -1792px; }
 
-        /* קביעה ידנית מוחלטת של כל 9 הפריימים על ציר ה-X - אפס יכולת החלקה */
+        /* קביעה ידנית של כל פריים ופריים. 
+           התמונה נשארת סטטית למשך 11%, וקופצת בבת אחת לפריים הבא. */
         @keyframes playFrames {
-            0% { background-position-x: 0px; }
-            11.11% { background-position-x: -256px; }
-            22.22% { background-position-x: -512px; }
-            33.33% { background-position-x: -768px; }
-            44.44% { background-position-x: -1024px; }
-            55.55% { background-position-x: -1280px; }
-            66.66% { background-position-x: -1536px; }
-            77.77% { background-position-x: -1792px; }
-            88.88% { background-position-x: -2048px; }
-            100% { background-position-x: 0px; }
+            0%, 11.10%      { background-position: 0px var(--posY); }
+            11.11%, 22.21%  { background-position: -256px var(--posY); }
+            22.22%, 33.32%  { background-position: -512px var(--posY); }
+            33.33%, 44.43%  { background-position: -768px var(--posY); }
+            44.44%, 55.54%  { background-position: -1024px var(--posY); }
+            55.55%, 66.65%  { background-position: -1280px var(--posY); }
+            66.66%, 77.76%  { background-position: -1536px var(--posY); }
+            77.77%, 88.87%  { background-position: -1792px var(--posY); }
+            88.88%, 99.99%  { background-position: -2048px var(--posY); }
+            100%            { background-position: 0px var(--posY); }
         }
     </style>
 </head>
