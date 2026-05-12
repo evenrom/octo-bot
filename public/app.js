@@ -18,42 +18,90 @@ const btnCalibrate = document.getElementById('btn-calibrate');
 // State
 let isSyncing = false;
 let isCalibrating = false;
-let currentFrame = 0;
-let mascotAnimationInterval = null;
 
-function startMascotFrameEngine() {
-    mascotAnimationInterval = setInterval(() => {
+// ==========================================
+// --- HTML5 Canvas Mascot Engine ---
+// ==========================================
+const MASCOT_CONFIG = {
+    width: 192,         // הרוחב המדויק של פריים
+    height: 208,        // הגובה המדויק של פריים
+    frames: 9,          // מספר העמודות
+    imageSrc: './spritesheet.png',
+    fps: 10             // קצב רענון (10 פריימים בשנייה = 100ms)
+};
+
+// מיפוי מצבי רוח לשורות הגריד (0-based index)
+const mascotStates = {
+    'idle': 0,        // שורה 1
+    'running': 1,     // שורה 2
+    'rolling': 6,     // שורה 7 (סחרור)
+    'failed': 7       // שורה 8 (עצוב)
+};
+
+let currentFrame = 0;
+let currentState = 'idle';
+let lastFrameTime = 0;
+let mascotAnimationId = null;
+
+const spriteImage = new Image();
+spriteImage.src = MASCOT_CONFIG.imageSrc;
+
+function drawMascot(timestamp) {
+    const canvas = document.getElementById('mascot-canvas');
+    if (!canvas) return;
+
+    // ממתין שהתמונה תטען במלואה
+    if (!spriteImage.complete) {
+        mascotAnimationId = requestAnimationFrame(drawMascot);
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    
+    // מונע טשטוש בדפדפנים מסוימים
+    ctx.imageSmoothingEnabled = false;
+
+    // בודק אם עבר מספיק זמן כדי להחליף פריים (לפי ה-FPS שהגדרנו)
+    if (timestamp - lastFrameTime > (1000 / MASCOT_CONFIG.fps)) {
         currentFrame++;
-        if (currentFrame > 8) currentFrame = 0;
-        const posX = currentFrame * -256;
-        const mascotEl = document.getElementById('mascot');
-        if (mascotEl) {
-            mascotEl.style.backgroundPositionX = `${posX}px`;
+        if (currentFrame >= MASCOT_CONFIG.frames) {
+            currentFrame = 0;
         }
-    }, 100);
+        lastFrameTime = timestamp;
+        
+        // מנקה את הפריים הקודם
+        ctx.clearRect(0, 0, MASCOT_CONFIG.width, MASCOT_CONFIG.height);
+        
+        // חותך בדיוק 192x208 מהמיקום המדויק בתמונה
+        const sourceX = currentFrame * MASCOT_CONFIG.width;
+        const sourceY = mascotStates[currentState] * MASCOT_CONFIG.height;
+        
+        ctx.drawImage(
+            spriteImage,
+            sourceX, sourceY, MASCOT_CONFIG.width, MASCOT_CONFIG.height,
+            0, 0, MASCOT_CONFIG.width, MASCOT_CONFIG.height
+        );
+    }
+
+    // קורא לפריים הבא מסונכרן עם קצב המסך (חלק יותר מ-setInterval)
+    mascotAnimationId = requestAnimationFrame(drawMascot);
 }
 
-// Mascot State Management
+// התחלת האנימציה כשהתמונה נטענת
+spriteImage.onload = () => {
+    mascotAnimationId = requestAnimationFrame(drawMascot);
+};
+
 window.setMascotState = function(state) {
-    const mascotEl = document.getElementById('mascot');
-    if (mascotEl) {
-        let offsetY = 0;
-        if (state === 'idle') {
-            offsetY = 0;
-        } else if (state === 'running') {
-            offsetY = -256;
-        } else if (state === 'rolling') {
-            offsetY = -1536;
-        } else if (state === 'failed') {
-            offsetY = -1792;
-        }
-        mascotEl.style.backgroundPositionY = `${offsetY}px`;
+    if (mascotStates[state] !== undefined) {
+        currentState = state;
+        currentFrame = 0; // איפוס תחילת האנימציה כשמחליפים מצב
     }
 };
+// ==========================================
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    startMascotFrameEngine();
     window.setMascotState('idle');
     fetchData();
     setupEventListeners();
@@ -63,9 +111,9 @@ function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
     btnCalibrate.addEventListener('click', handleCalibrate);
 
-    const mascot = document.getElementById('mascot');
-    if (mascot) {
-        mascot.addEventListener('click', () => {
+    const mascotCanvas = document.getElementById('mascot-canvas');
+    if (mascotCanvas) {
+        mascotCanvas.addEventListener('click', () => {
             if (isSyncing || isCalibrating) return;
             window.setMascotState('running');
             setTimeout(() => {
@@ -196,7 +244,6 @@ async function handleSync() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'Failed to sync fixtures.');
         }
-        // Refresh data after successful sync
         await fetchData();
         window.setMascotState('rolling');
     } catch (error) {
@@ -223,7 +270,6 @@ async function handleCalibrate() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'Failed to resolve results.');
         }
-        // Refresh data after successful calibration
         await fetchData();
         window.setMascotState('rolling');
     } catch (error) {
@@ -263,7 +309,6 @@ function updateButtonState(btn, isLoading, text) {
     if (isLoading) {
         btn.disabled = true;
         btn.classList.add('opacity-70', 'cursor-not-allowed');
-        // Add spinner
         if (!btn.querySelector('.loader')) {
             const loader = document.createElement('div');
             loader.className = 'loader border-t-white border-white/30';
@@ -272,7 +317,6 @@ function updateButtonState(btn, isLoading, text) {
     } else {
         btn.disabled = false;
         btn.classList.remove('opacity-70', 'cursor-not-allowed');
-        // Remove spinner
         const loader = btn.querySelector('.loader');
         if (loader) {
             loader.remove();
