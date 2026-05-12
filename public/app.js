@@ -23,25 +23,39 @@ let isCalibrating = false;
 // --- HTML5 Canvas Mascot Engine ---
 // ==========================================
 const MASCOT_CONFIG = {
-    width: 192,         // הרוחב המדויק של פריים
-    height: 208,        // הגובה המדויק של פריים
-    frames: 9,          // מספר העמודות
-    imageSrc: './spritesheet.png',
-    fps: 10             // קצב רענון (10 פריימים בשנייה = 100ms)
+    width: 192,
+    height: 208,
+    imageSrc: '/spritesheet.png',
+    fps: 10 
 };
 
-// מיפוי מצבי רוח לשורות הגריד (0-based index)
+// הגדרת המצבים: איזה שורה (0-based) וכמה פריימים יש לה כדי למנוע "פריים ריק"
 const mascotStates = {
-    'idle': 0,        // שורה 1
-    'running': 1,     // שורה 2
-    'rolling': 6,     // שורה 7 (סחרור)
-    'failed': 7       // שורה 8 (עצוב)
+    'idle':         { row: 0, frames: 9 }, // שורה 1
+    'running':      { row: 1, frames: 9 }, // שורה 2
+    'runningRight': { row: 2, frames: 9 }, // שורה 3
+    'runningLeft':  { row: 3, frames: 9 }, // שורה 4
+    'correct':      { row: 4, frames: 7 }, // שורה 5 - הימור נכון (קפיצה)
+    'waving':       { row: 5, frames: 9 }, // שורה 6 - מצב קבוע / פתיחה
+    'loading':      { row: 6, frames: 6 }, // שורה 7 - טעינה (סחרור)
+    'failed':       { row: 7, frames: 9 }, // שורה 8 - הימור לא נכון (בכי)
+    'sleeping':     { row: 8, frames: 9 }  // שורה 9 - שינה
 };
 
+// המצבים ביניהם התמנון עובר אוטומטית (לא כולל 5, 7, 8)
+const autoStatesPool = ['waving', 'idle', 'running', 'runningRight', 'runningLeft', 'sleeping'];
+
+let currentState = 'waving'; // מתחיל בנפנוף
 let currentFrame = 0;
-let currentState = 'idle';
 let lastFrameTime = 0;
 let mascotAnimationId = null;
+
+let loopsCompleted = 0;
+let targetLoops = getRandomLoops(); // הגרלה בין 3 ל-5
+
+function getRandomLoops() {
+    return Math.floor(Math.random() * 3) + 3; // 3, 4, 5
+}
 
 const spriteImage = new Image();
 spriteImage.src = MASCOT_CONFIG.imageSrc;
@@ -50,31 +64,34 @@ function drawMascot(timestamp) {
     const canvas = document.getElementById('mascot-canvas');
     if (!canvas) return;
 
-    // ממתין שהתמונה תטען במלואה
     if (!spriteImage.complete) {
         mascotAnimationId = requestAnimationFrame(drawMascot);
         return;
     }
 
     const ctx = canvas.getContext('2d');
-    
-    // מונע טשטוש בדפדפנים מסוימים
     ctx.imageSmoothingEnabled = false;
 
-    // בודק אם עבר מספיק זמן כדי להחליף פריים (לפי ה-FPS שהגדרנו)
     if (timestamp - lastFrameTime > (1000 / MASCOT_CONFIG.fps)) {
         currentFrame++;
-        if (currentFrame >= MASCOT_CONFIG.frames) {
+        
+        // בדיקה האם סיימנו הרצה של האנימציה הנוכחית
+        if (currentFrame >= mascotStates[currentState].frames) {
             currentFrame = 0;
+            loopsCompleted++;
+
+            // אם סיימנו מספיק הרצות ואנחנו במצב אוטומטי, נעבור למצב הבא
+            if (autoStatesPool.includes(currentState) && loopsCompleted >= targetLoops) {
+                switchToNextAutoState();
+            }
         }
+        
         lastFrameTime = timestamp;
         
-        // מנקה את הפריים הקודם
         ctx.clearRect(0, 0, MASCOT_CONFIG.width, MASCOT_CONFIG.height);
         
-        // חותך בדיוק 192x208 מהמיקום המדויק בתמונה
         const sourceX = currentFrame * MASCOT_CONFIG.width;
-        const sourceY = mascotStates[currentState] * MASCOT_CONFIG.height;
+        const sourceY = mascotStates[currentState].row * MASCOT_CONFIG.height;
         
         ctx.drawImage(
             spriteImage,
@@ -83,26 +100,53 @@ function drawMascot(timestamp) {
         );
     }
 
-    // קורא לפריים הבא מסונכרן עם קצב המסך (חלק יותר מ-setInterval)
     mascotAnimationId = requestAnimationFrame(drawMascot);
 }
 
-// התחלת האנימציה כשהתמונה נטענת
+function switchToNextAutoState() {
+    const currentIndex = autoStatesPool.indexOf(currentState);
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= autoStatesPool.length) nextIndex = 0;
+    
+    window.setMascotState(autoStatesPool[nextIndex]);
+}
+
 spriteImage.onload = () => {
     mascotAnimationId = requestAnimationFrame(drawMascot);
 };
 
-window.setMascotState = function(state) {
+// פונקציית החלפת המצבים. מקבלת מצב, ואופציה לזמן חזרה אוטומטית למצב קבוע
+let revertTimeout = null;
+window.setMascotState = function(state, revertDelayMs = null) {
     if (mascotStates[state] !== undefined) {
         currentState = state;
-        currentFrame = 0; // איפוס תחילת האנימציה כשמחליפים מצב
+        currentFrame = 0; // תמיד להתחיל מפריים ראשון באנימציה החדשה
+        
+        // איפוס טיימר חזרה למצב קבוע (אם היה כזה)
+        if (revertTimeout) {
+            clearTimeout(revertTimeout);
+            revertTimeout = null;
+        }
+        
+        // אם עברנו לאחד מהמצבים האוטומטיים, נאתחל את ספירת הלופים
+        if (autoStatesPool.includes(state)) {
+            loopsCompleted = 0;
+            targetLoops = getRandomLoops();
+        }
+
+        // אם הוגדר זמן חזרה (למשל אחרי הימור נכון או כישלון), נחזיר אותו לנפנוף
+        if (revertDelayMs) {
+            revertTimeout = setTimeout(() => {
+                window.setMascotState('waving');
+            }, revertDelayMs);
+        }
     }
 };
 // ==========================================
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    window.setMascotState('idle');
+    window.setMascotState('waving');
     fetchData();
     setupEventListeners();
 });
@@ -114,13 +158,8 @@ function setupEventListeners() {
     const mascotCanvas = document.getElementById('mascot-canvas');
     if (mascotCanvas) {
         mascotCanvas.addEventListener('click', () => {
-            if (isSyncing || isCalibrating) return;
-            window.setMascotState('running');
-            setTimeout(() => {
-                if (!isSyncing && !isCalibrating) {
-                    window.setMascotState('idle');
-                }
-            }, 3500);
+            if (isSyncing || isCalibrating) return; // לא להפריע לו אם הוא טוען
+            switchToNextAutoState(); // כל לחיצה מעבירה לאנימציה הבאה במאגר האוטומטי
         });
     }
 }
@@ -128,7 +167,7 @@ function setupEventListeners() {
 // Fetch initial data
 async function fetchData() {
     showLoader(true);
-    window.setMascotState('running');
+    window.setMascotState('loading'); // שורה 7 - טעינה
     hideError();
 
     try {
@@ -140,11 +179,11 @@ async function fetchData() {
 
         const data = await response.json();
         renderData(data);
-        window.setMascotState('rolling');
+        window.setMascotState('waving'); // סיים לטעון, חוזר לנפנוף
     } catch (error) {
         console.error("Failed to fetch data:", error);
         showError(`Failed to load predictions: ${error.message}`);
-        window.setMascotState('failed');
+        window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
     } finally {
         showLoader(false);
     }
@@ -235,7 +274,7 @@ async function handleSync() {
 
     isSyncing = true;
     updateButtonState(btnSync, true, 'FETCHING...');
-    window.setMascotState('running');
+    window.setMascotState('loading'); // שורה 7 - טעינה
     hideError();
 
     try {
@@ -245,10 +284,9 @@ async function handleSync() {
             throw new Error(err.error || 'Failed to sync fixtures.');
         }
         await fetchData();
-        window.setMascotState('rolling');
     } catch (error) {
         showError(`Sync Error: ${error.message}`);
-        window.setMascotState('failed');
+        window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
     } finally {
         isSyncing = false;
         updateButtonState(btnSync, false, 'FETCH FIXTURES');
@@ -261,7 +299,7 @@ async function handleCalibrate() {
 
     isCalibrating = true;
     updateButtonState(btnCalibrate, true, 'RESOLVING...');
-    window.setMascotState('running');
+    window.setMascotState('loading'); // שורה 7 - טעינה
     hideError();
 
     try {
@@ -271,10 +309,10 @@ async function handleCalibrate() {
             throw new Error(err.error || 'Failed to resolve results.');
         }
         await fetchData();
-        window.setMascotState('rolling');
+        window.setMascotState('correct', 4000); // שורה 5 - יקפוץ משמחה ל-4 שניות שהאלגוריתם סיים!
     } catch (error) {
         showError(`Calibrate Error: ${error.message}`);
-        window.setMascotState('failed');
+        window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
     } finally {
         isCalibrating = false;
         updateButtonState(btnCalibrate, false, 'RESOLVE RESULTS');
