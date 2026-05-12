@@ -6,8 +6,8 @@ const ODDS_API_KEY = process.env.ODDS_API_KEY;
 
 // API Constants
 const FOOTBALL_API_HOST = 'v3.football.api-sports.io';
-const LEAGUE_ID = 1; // Assuming World Cup
-const SEASON = parseInt(process.env.FOOTBALL_SEASON || '2024');
+const LEAGUE_ID = 39; // English Premier League
+const SEASON = parseInt(process.env.FOOTBALL_SEASON || '2025');
 
 // Helper to convert form string (e.g. "WDLDW") to a score between 0 and 1
 function calculateFormScore(formStr) {
@@ -76,8 +76,9 @@ export default async function handler(req, res) {
 
     // Fetch Odds
     const oddsRes = await throttledFetch(
-        `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
+        `https://api.the-odds-api.com/v4/sports/soccer_epl/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
     );
+    if (!oddsRes.ok) throw new Error(`Odds API error: ${oddsRes.statusText}`);
     const oddsData = await oddsRes.json();
 
     // 3. Process each fixture
