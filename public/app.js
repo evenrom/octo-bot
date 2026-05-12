@@ -31,15 +31,15 @@ const MASCOT_CONFIG = {
 
 // הגדרת המצבים: איזה שורה (0-based) וכמה פריימים יש לה כדי למנוע "פריים ריק"
 const mascotStates = {
-    'idle':         { row: 0, frames: 9 }, // שורה 1
-    'running':      { row: 1, frames: 9 }, // שורה 2
-    'runningRight': { row: 2, frames: 9 }, // שורה 3
-    'runningLeft':  { row: 3, frames: 9 }, // שורה 4
+    'idle':         { row: 0, frames: 8 }, // תוקן ל-8
+    'running':      { row: 1, frames: 8 }, // תוקן ל-8
+    'runningRight': { row: 2, frames: 8 }, // תוקן ל-8
+    'runningLeft':  { row: 3, frames: 8 }, // תוקן ל-8
     'correct':      { row: 4, frames: 7 }, // שורה 5 - הימור נכון (קפיצה)
-    'waving':       { row: 5, frames: 9 }, // שורה 6 - מצב קבוע / פתיחה
+    'waving':       { row: 5, frames: 8 }, // תוקן ל-8 (זה מה שתיקן את הנפנוף!)
     'loading':      { row: 6, frames: 6 }, // שורה 7 - טעינה (סחרור)
-    'failed':       { row: 7, frames: 9 }, // שורה 8 - הימור לא נכון (בכי)
-    'sleeping':     { row: 8, frames: 9 }  // שורה 9 - שינה
+    'failed':       { row: 7, frames: 8 }, // תוקן ל-8 
+    'sleeping':     { row: 8, frames: 8 }  // תוקן ל-8
 };
 
 // המצבים ביניהם התמנון עובר אוטומטית (לא כולל 5, 7, 8)
