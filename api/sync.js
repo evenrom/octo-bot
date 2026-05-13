@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     // Fetch Fixtures
     const fixturesResponse = await throttledFetch(
       `https://${FOOTBALL_API_HOST}/fixtures?next=4&league=${LEAGUE_ID}&season=${SEASON}`,
-      { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
+      { headers: { 'x-apisports-key': API_FOOTBALL_KEY } }
     );
     if (!fixturesResponse.ok) throw new Error(`API-Football fixtures error: ${fixturesResponse.statusText}`);
     const fixturesData = await fixturesResponse.json();
@@ -66,6 +66,7 @@ export default async function handler(req, res) {
       `https://${FOOTBALL_API_HOST}/standings?league=${LEAGUE_ID}&season=${SEASON}`,
       { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
     );
+    if (!standingsResponse.ok) throw new Error(`API-Football standings error: ${standingsResponse.statusText}`);
     const standingsData = await standingsResponse.json();
     const forms = {}; // team_id -> form score
     if (standingsData.response && standingsData.response.length > 0) {
