@@ -7,7 +7,7 @@ const ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 // API Constants
 const FOOTBALL_API_HOST = 'v3.football.api-sports.io';
 const LEAGUE_ID = 39; // English Premier League
-const SEASON = parseInt(process.env.FOOTBALL_SEASON || '2025');
+const SEASON = 2025;
 
 // Helper to convert form string (e.g. "WDLDW") to a score between 0 and 1
 function calculateFormScore(formStr) {
