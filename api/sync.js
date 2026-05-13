@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
     // Fetch Fixtures
     const fixturesResponse = await throttledFetch(
-      `https://${FOOTBALL_API_HOST}/fixtures?date=${today}&league=${LEAGUE_ID}&season=${SEASON}`,
+      `https://${FOOTBALL_API_HOST}/fixtures?next=4&league=${LEAGUE_ID}&season=${SEASON}`,
       { headers: { 'x-rapidapi-host': FOOTBALL_API_HOST, 'x-rapidapi-key': API_FOOTBALL_KEY } }
     );
     if (!fixturesResponse.ok) throw new Error(`API-Football fixtures error: ${fixturesResponse.statusText}`);
