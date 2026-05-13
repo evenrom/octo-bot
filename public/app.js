@@ -219,7 +219,7 @@ function renderData(data) {
 function createPredictionCard(prediction) {
     const {
         match_title,
-        match_date,
+        kickoff_time,
         home_prob,
         draw_prob,
         away_prob,
@@ -227,16 +227,16 @@ function createPredictionCard(prediction) {
         exact_score_2
     } = prediction;
 
-    const homePercent = home_prob ? Math.round(home_prob * 100) : 0;
-    const drawPercent = draw_prob ? Math.round(draw_prob * 100) : 0;
-    const awayPercent = away_prob ? Math.round(away_prob * 100) : 0;
+    const homePercent = home_prob !== undefined ? Math.round(home_prob) : 0;
+    const drawPercent = draw_prob !== undefined ? Math.round(draw_prob) : 0;
+    const awayPercent = away_prob !== undefined ? Math.round(away_prob) : 0;
 
     const card = document.createElement('div');
     card.className = 'bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-5 hover:border-[#39ff14]/40 transition-all flex flex-col';
 
     card.innerHTML = `
         <div class="text-xs text-[#dae2fd]/70 mb-3 border-b border-white/10 pb-2 font-sora flex justify-between">
-            <span>${formatDate(match_date)}</span>
+            <span>${formatDate(kickoff_time)}</span>
         </div>
 
         <div class="mb-4">
