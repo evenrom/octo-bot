@@ -109,7 +109,28 @@ function switchToNextAutoState() {
     window.setMascotState(autoStatesPool[nextIndex]);
 }
 
+function setDynamicFavicon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = MASCOT_CONFIG.width;
+    canvas.height = MASCOT_CONFIG.height;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw first frame (row 0, frame 0)
+    ctx.drawImage(
+        spriteImage,
+        0, 0, MASCOT_CONFIG.width, MASCOT_CONFIG.height,
+        0, 0, MASCOT_CONFIG.width, MASCOT_CONFIG.height
+    );
+    
+    const dataURL = canvas.toDataURL('image/png');
+    const favicon = document.getElementById('favicon');
+    if (favicon) {
+        favicon.href = dataURL;
+    }
+}
+
 spriteImage.onload = () => {
+    setDynamicFavicon();
     mascotAnimationId = requestAnimationFrame(drawMascot);
 };
 
