@@ -1,7 +1,7 @@
 import { db } from '../lib/db.js';
 import { throttledFetch } from '../lib/api-client.js';
 
-const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
+const API_FOOTBALL_KEY = process.env.RAPIDAPI_KEY;
 const ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 
 // API Constants
