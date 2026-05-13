@@ -1,12 +1,13 @@
 import { db } from '../lib/db.js';
 import { throttledFetch } from '../lib/api-client.js';
 
-const API_FOOTBALL_KEY = process.env.RAPIDAPI_KEY; // שימוש בשם המדויק מה-env שלך
+// שורה 4: נמשוך את המשתנה החדש שיצרנו ב-Vercel
+const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY; 
 const ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 
-// API Constants
-const FOOTBALL_API_HOST = 'api-football-v1.p.rapidapi.com'; // הכתובת של RapidAPI
-const LEAGUE_ID = 39; 
+// שורה 8: נחזיר את הכתובת לשרת הישיר
+const FOOTBALL_API_HOST = 'v3.football.api-sports.io'; 
+const LEAGUE_ID = 39;
 const SEASON = 2025;
 
 // Helper to convert form string (e.g. "WDLDW") to a score between 0 and 1
@@ -64,12 +65,7 @@ export default async function handler(req, res) {
     // Fetch Standings (for form)
     const standingsResponse = await throttledFetch(
       `https://${FOOTBALL_API_HOST}/standings?league=${LEAGUE_ID}&season=${SEASON}`,
-      { 
-        headers: { 
-          'x-rapidapi-host': FOOTBALL_API_HOST, 
-          'x-rapidapi-key': API_FOOTBALL_KEY 
-        } 
-      }
+      { headers: { 'x-apisports-key': API_FOOTBALL_KEY } }
     );
     if (!standingsResponse.ok) throw new Error(`API-Football standings error: ${standingsResponse.statusText}`);
     const standingsData = await standingsResponse.json();
