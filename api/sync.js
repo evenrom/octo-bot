@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       const stateResult = await db.execute(`
         SELECT odds_weight, momentum_weight
         FROM AlgorithmState
-        ORDER BY id DESC LIMIT 1
+        ORDER BY state_id DESC LIMIT 1
       `);
       if (stateResult.rows.length > 0) {
         oddsWeight = stateResult.rows[0].odds_weight;
@@ -57,6 +57,9 @@ export default async function handler(req, res) {
     if (!fixturesResponse.ok) throw new Error(`API-Football fixtures error: ${fixturesResponse.statusText}`);
     const fixturesData = await fixturesResponse.json();
     const fixtures = fixturesData.response || [];
+    if (fixturesData.errors && Object.keys(fixturesData.errors).length > 0) {
+        throw new Error(`API-Football Error: ${JSON.stringify(fixturesData.errors)}`);
+    }
 
     // Fetch Standings (for form)
     const standingsResponse = await throttledFetch(
@@ -177,11 +180,9 @@ export default async function handler(req, res) {
     }
 
     if (dbStatements.length > 0) {
-        try {
-            await db.batch(dbStatements);
-        } catch (dbErr) {
-             console.error("Database batch error:", dbErr.message);
-        }
+        await db.batch(dbStatements);
+    } else {
+        throw new Error("No fixtures were returned from the API to save.");
     }
 
     res.status(200).json({ success: true, message: `Synced ${fixtures.length} matches.` });
