@@ -13,11 +13,9 @@ const errorMessageEl = document.getElementById('error-message');
 const algorithmStatusEl = document.getElementById('algorithm-status');
 
 const btnSync = document.getElementById('btn-sync');
-const btnCalibrate = document.getElementById('btn-calibrate');
 
 // State
 let isSyncing = false;
-let isCalibrating = false;
 
 // ==========================================
 // --- HTML5 Canvas Mascot Engine ---
@@ -153,12 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupEventListeners() {
     btnSync.addEventListener('click', handleSync);
-    btnCalibrate.addEventListener('click', handleCalibrate);
 
     const mascotCanvas = document.getElementById('mascot-canvas');
     if (mascotCanvas) {
         mascotCanvas.addEventListener('click', () => {
-            if (isSyncing || isCalibrating) return; // לא להפריע לו אם הוא טוען
+            if (isSyncing) return; // לא להפריע לו אם הוא טוען
             switchToNextAutoState(); // כל לחיצה מעבירה לאנימציה הבאה במאגר האוטומטי
         });
     }
@@ -221,46 +218,52 @@ function renderData(data) {
 // Create individual prediction card
 function createPredictionCard(prediction) {
     const {
-        home_team,
-        away_team,
+        match_title,
         match_date,
-        predicted_outcome,
-        predicted_probability,
-        predicted_home_goals,
-        predicted_away_goals
+        home_prob,
+        draw_prob,
+        away_prob,
+        exact_score_1,
+        exact_score_2
     } = prediction;
 
-    const probPercent = predicted_probability ? Math.round(predicted_probability * 100) : 0;
-
-    let predictionText = predicted_outcome || 'Pending';
-    if (predicted_home_goals !== null && predicted_away_goals !== null) {
-        predictionText = `${predicted_home_goals} - ${predicted_away_goals}`;
-    }
+    const homePercent = home_prob ? Math.round(home_prob * 100) : 0;
+    const drawPercent = draw_prob ? Math.round(draw_prob * 100) : 0;
+    const awayPercent = away_prob ? Math.round(away_prob * 100) : 0;
 
     const card = document.createElement('div');
     card.className = 'bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-5 hover:border-[#39ff14]/40 transition-all flex flex-col';
 
     card.innerHTML = `
-        <div class="text-xs text-[#dae2fd]/70 mb-3 border-b border-white/10 pb-2 font-sora">${formatDate(match_date)}</div>
-
-        <div class="flex justify-between items-center mb-4 flex-grow">
-            <div class="text-lg font-space-grotesk font-bold text-center w-[40%] truncate" title="${home_team}">${home_team || 'TBD'}</div>
-            <div class="text-sm font-jetbrains-mono text-[#dae2fd]/50 w-[20%] text-center">VS</div>
-            <div class="text-lg font-space-grotesk font-bold text-center w-[40%] truncate" title="${away_team}">${away_team || 'TBD'}</div>
+        <div class="text-xs text-[#dae2fd]/70 mb-3 border-b border-white/10 pb-2 font-sora flex justify-between">
+            <span>${formatDate(match_date)}</span>
         </div>
 
-        <div class="bg-black/20 rounded p-3 mb-4 text-center border border-white/5">
-            <div class="text-xs text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Deterministic Prediction</div>
-            <div class="text-xl font-bold text-[#39ff14] font-jetbrains-mono">${predictionText}</div>
+        <div class="mb-4">
+            <h3 class="text-xl font-space-grotesk font-bold text-center text-white mb-2">${match_title || 'TBD'}</h3>
         </div>
 
-        <div class="mt-auto">
+        <div class="mb-4">
             <div class="flex justify-between text-xs mb-1 font-sora">
-                <span class="text-[#dae2fd]/70">Confidence</span>
-                <span class="font-jetbrains-mono text-[#39ff14]/80">${probPercent}%</span>
+                <span class="text-blue-400">Home ${homePercent}%</span>
+                <span class="text-gray-400">Draw ${drawPercent}%</span>
+                <span class="text-red-400">Away ${awayPercent}%</span>
             </div>
-            <div class="w-full bg-black/30 rounded-full h-2">
-                <div class="bg-[#39ff14] h-2 rounded-full" style="width: ${probPercent}%"></div>
+            <div class="w-full bg-black/30 rounded-full h-2 flex overflow-hidden">
+                <div class="bg-blue-500 h-2" style="width: ${homePercent}%"></div>
+                <div class="bg-gray-500 h-2" style="width: ${drawPercent}%"></div>
+                <div class="bg-red-500 h-2" style="width: ${awayPercent}%"></div>
+            </div>
+        </div>
+
+        <div class="mt-auto grid grid-cols-2 gap-2">
+            <div class="bg-black/20 rounded p-3 text-center border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Option A</div>
+                <div class="text-lg font-bold text-[#39ff14] font-jetbrains-mono">${exact_score_1 || 'TBD'}</div>
+            </div>
+            <div class="bg-black/20 rounded p-3 text-center border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Option B</div>
+                <div class="text-lg font-bold text-[#39ff14] font-jetbrains-mono">${exact_score_2 || 'TBD'}</div>
             </div>
         </div>
     `;
@@ -273,7 +276,7 @@ async function handleSync() {
     if (isSyncing) return;
 
     isSyncing = true;
-    updateButtonState(btnSync, true, 'FETCHING...');
+    updateButtonState(btnSync, true, 'CALCULATING...');
     window.setMascotState('loading'); // שורה 7 - טעינה
     hideError();
 
@@ -284,38 +287,13 @@ async function handleSync() {
             throw new Error(err.error || 'Failed to sync fixtures.');
         }
         await fetchData();
+        window.setMascotState('correct', 4000); // Call on success
     } catch (error) {
         showError(`Sync Error: ${error.message}`);
         window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
     } finally {
         isSyncing = false;
-        updateButtonState(btnSync, false, 'FETCH FIXTURES');
-    }
-}
-
-// Handle Calibrate Button Click
-async function handleCalibrate() {
-    if (isCalibrating) return;
-
-    isCalibrating = true;
-    updateButtonState(btnCalibrate, true, 'RESOLVING...');
-    window.setMascotState('loading'); // שורה 7 - טעינה
-    hideError();
-
-    try {
-        const res = await fetch('/api/calibrate', { method: 'POST' });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to resolve results.');
-        }
-        await fetchData();
-        window.setMascotState('correct', 4000); // שורה 5 - יקפוץ משמחה ל-4 שניות שהאלגוריתם סיים!
-    } catch (error) {
-        showError(`Calibrate Error: ${error.message}`);
-        window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
-    } finally {
-        isCalibrating = false;
-        updateButtonState(btnCalibrate, false, 'RESOLVE RESULTS');
+        updateButtonState(btnSync, false, 'FETCH PREDICTIONS');
     }
 }
 

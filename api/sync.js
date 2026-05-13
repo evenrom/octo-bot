@@ -1,196 +1,111 @@
 import { db } from '../lib/db.js';
-import { throttledFetch } from '../lib/api-client.js';
 
-// שורה 4: נמשוך את המשתנה החדש שיצרנו ב-Vercel
-const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY; 
-const ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
+// פנייה למשתנה כפי שהוא מוגדר אצלך ב-Vercel
+const ODDS_API_KEY = process.env.THE_ODDS_API_KEY; 
+const ODDS_API_HOST = 'api.the-odds-api.com';
+const SPORT = 'soccer_fifa_world_cup'; // הליגה של המונדיאל!
 
-// שורה 8: נחזיר את הכתובת לשרת הישיר
-const FOOTBALL_API_HOST = 'v3.football.api-sports.io'; 
-const LEAGUE_ID = 39;
-const SEASON = 2025;
-
-// Helper to convert form string (e.g. "WDLDW") to a score between 0 and 1
-function calculateFormScore(formStr) {
-  if (!formStr || formStr.length === 0) return 0.5;
-  let score = 0;
-  for (const char of formStr) {
-    if (char === 'W') score += 1;
-    else if (char === 'D') score += 0.5;
-  }
-  return score / formStr.length;
+// --- פונקציות עזר: מתמטיקה ופואסון ---
+function factorial(n) {
+  if (n === 0 || n === 1) return 1;
+  return n * factorial(n - 1);
 }
 
-// Convert decimal odds to implied probability
-function oddsToProbability(decimalOdds) {
-    if (!decimalOdds || decimalOdds <= 0) return 0;
-    return 1 / decimalOdds;
+function poisson(k, lambda) {
+  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
+}
+
+function calculateExactScores(homeProb, awayProb) {
+  // המרת אחוזים לתוחלת שערים משוערת (Lambda)
+  const homeLambda = (homeProb / 100) * 2.5; 
+  const awayLambda = (awayProb / 100) * 2.5;
+
+  let scores = [];
+  // סריקת תוצאות מ-0:0 ועד 4:4
+  for (let h = 0; h <= 4; h++) {
+    for (let a = 0; a <= 4; a++) {
+      const probability = poisson(h, homeLambda) * poisson(a, awayLambda);
+      scores.push({ score: `${h}-${a}`, prob: probability });
+    }
+  }
+
+  // מיון ובחירת 2 התוצאות המובילות
+  scores.sort((a, b) => b.prob - a.prob);
+  return [scores[0].score, scores[1].score];
 }
 
 export default async function handler(req, res) {
-  try {
-    // 1. Get Algorithm Weights
-    let oddsWeight = 0.5;
-    let momentumWeight = 0.5;
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
 
     try {
-      const stateResult = await db.execute(`
-        SELECT odds_weight, momentum_weight
-        FROM AlgorithmState
-        ORDER BY state_id DESC LIMIT 1
-      `);
-      if (stateResult.rows.length > 0) {
-        oddsWeight = stateResult.rows[0].odds_weight;
-        momentumWeight = stateResult.rows[0].momentum_weight;
-      }
-    } catch (dbError) {
-        console.warn("Could not fetch AlgorithmState, using defaults:", dbError);
-    }
-
-    // 2. Fetch External Data ONCE to avoid timeouts
-    const today = new Date().toISOString().split('T')[0];
-
-    // Fetch Fixtures
-    const fixturesResponse = await throttledFetch(
-      `https://${FOOTBALL_API_HOST}/fixtures?next=4&league=${LEAGUE_ID}&season=${SEASON}`,
-      { headers: { 'x-apisports-key': API_FOOTBALL_KEY } }
-    );
-    if (!fixturesResponse.ok) throw new Error(`API-Football fixtures error: ${fixturesResponse.statusText}`);
-    const fixturesData = await fixturesResponse.json();
-    const fixtures = fixturesData.response || [];
-    if (fixturesData.errors && Object.keys(fixturesData.errors).length > 0) {
-        throw new Error(`API-Football Error: ${JSON.stringify(fixturesData.errors)}`);
-    }
-
-    // Fetch Standings (for form)
-    const standingsResponse = await throttledFetch(
-      `https://${FOOTBALL_API_HOST}/standings?league=${LEAGUE_ID}&season=${SEASON}`,
-      { headers: { 'x-apisports-key': API_FOOTBALL_KEY } }
-    );
-    if (!standingsResponse.ok) throw new Error(`API-Football standings error: ${standingsResponse.statusText}`);
-    const standingsData = await standingsResponse.json();
-    const forms = {}; // team_id -> form score
-    if (standingsData.response && standingsData.response.length > 0) {
-        const leagueStandings = standingsData.response[0].league.standings;
-        for (const group of leagueStandings) {
-            for (const team of group) {
-                forms[team.team.id] = calculateFormScore(team.form);
-            }
-        }
-    }
-
-    // Fetch Odds
-    const oddsRes = await throttledFetch(
-        `https://api.the-odds-api.com/v4/sports/soccer_epl/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
-    );
-    if (!oddsRes.ok) throw new Error(`Odds API error: ${oddsRes.statusText}`);
-    const oddsData = await oddsRes.json();
-
-    // 3. Process each fixture
-    const dbStatements = [];
-    for (const fixture of fixtures) {
-        const matchId = fixture.fixture.id.toString();
-        const homeTeamId = fixture.teams.home.id;
-        const awayTeamId = fixture.teams.away.id;
-        const homeTeamName = fixture.teams.home.name;
-        const awayTeamName = fixture.teams.away.name;
-        const matchDate = fixture.fixture.date;
-
-        const homeFormScore = forms[homeTeamId] !== undefined ? forms[homeTeamId] : 0.5;
-        const awayFormScore = forms[awayTeamId] !== undefined ? forms[awayTeamId] : 0.5;
-
-        let homeOdds = 2.0;
-        let awayOdds = 2.0;
-        let drawOdds = 3.0; // Default draw odds
-
-        // Find matching match in Odds API
-        if (Array.isArray(oddsData)) {
-            const matchOdds = oddsData.find(m =>
-                (m.home_team.includes(homeTeamName) || homeTeamName.includes(m.home_team)) &&
-                (m.away_team.includes(awayTeamName) || awayTeamName.includes(m.away_team))
-            );
-
-            if (matchOdds && matchOdds.bookmakers && matchOdds.bookmakers.length > 0) {
-                const bookmaker = matchOdds.bookmakers[0];
-                const h2hMarket = bookmaker.markets.find(m => m.key === 'h2h');
-                if (h2hMarket) {
-                    const homeOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.home_team);
-                    const awayOutcome = h2hMarket.outcomes.find(o => o.name === matchOdds.away_team);
-                    const drawOutcome = h2hMarket.outcomes.find(o => o.name.toLowerCase() === 'draw');
-
-                    if (homeOutcome) homeOdds = homeOutcome.price;
-                    if (awayOutcome) awayOdds = awayOutcome.price;
-                    if (drawOutcome) drawOdds = drawOutcome.price;
-                }
-            }
+        if (!ODDS_API_KEY) {
+            throw new Error("Odds API key is missing. Check your Vercel settings.");
         }
 
-        const homeProb = oddsToProbability(homeOdds);
-        const awayProb = oddsToProbability(awayOdds);
-        const drawProb = oddsToProbability(drawOdds);
+        // 1. Fetch upcoming matches and odds
+        const oddsResponse = await fetch(
+            `https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
+        );
 
-        // Calculate AWE Scores
-        const homeScore = (oddsWeight * homeProb) + (momentumWeight * homeFormScore);
-        const awayScore = (oddsWeight * awayProb) + (momentumWeight * awayFormScore);
-
-        // Derive prediction
-        // A simple heuristic for scores: scale AWE score to expected goals.
-        // Assuming max AWE is around 1.0 (if odds are high and form is 1.0)
-        // Average goals per game is around 1-3.
-        const predictedHomeGoals = Math.round(homeScore * 2.5);
-        const predictedAwayGoals = Math.round(awayScore * 2.5);
-
-        let prediction = 'Draw';
-        if (predictedHomeGoals > predictedAwayGoals) {
-            prediction = 'Home Win';
-        } else if (predictedAwayGoals > predictedHomeGoals) {
-            prediction = 'Away Win';
+        if (!oddsResponse.ok) {
+            const errData = await oddsResponse.text();
+            throw new Error(`Odds API Unauthorized or Error: ${errData}`);
         }
 
-        // Predicted probability is based on the dominant team's AWE
-        const predictedProb = Math.max(homeScore, awayScore);
+        const matches = await oddsResponse.json();
+        
+        // ניקח רק את 4 המשחקים הקרובים ביותר שיש להם יחסים
+        const upcomingMatches = matches.filter(m => m.bookmakers && m.bookmakers.length > 0).slice(0, 4);
 
-        const apiLastUpdated = new Date().toISOString();
+        if (upcomingMatches.length === 0) {
+             throw new Error("No upcoming World Cup matches with odds found.");
+        }
 
-        // Collect Match statement
-        dbStatements.push({
-            sql: `INSERT INTO Matches (match_id, home_team, away_team, kickoff_time, home_odds, draw_odds, away_odds, api_last_updated)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                  ON CONFLICT(match_id) DO UPDATE SET
-                  home_team = excluded.home_team,
-                  away_team = excluded.away_team,
-                  kickoff_time = excluded.kickoff_time,
-                  home_odds = excluded.home_odds,
-                  draw_odds = excluded.draw_odds,
-                  away_odds = excluded.away_odds,
-                  api_last_updated = excluded.api_last_updated`,
-            args: [matchId, homeTeamName, awayTeamName, matchDate, homeOdds, drawOdds, awayOdds, apiLastUpdated]
-        });
+        // 2. ניקוי הטבלה הישנה כדי לשמור רק את המשחקים החדשים
+        await db.execute('DELETE FROM Predictions');
 
-        // Collect Prediction statement
-        dbStatements.push({
-            sql: `INSERT INTO Predictions (match_id, predicted_winner, confidence_level, home_win_prob, draw_prob, away_win_prob)
-                  VALUES (?, ?, ?, ?, ?, ?)
-                  ON CONFLICT(match_id) DO UPDATE SET
-                  predicted_winner = excluded.predicted_winner,
-                  confidence_level = excluded.confidence_level,
-                  home_win_prob = excluded.home_win_prob,
-                  draw_prob = excluded.draw_prob,
-                  away_win_prob = excluded.away_win_prob`,
-            args: [matchId, prediction, predictedProb, homeProb, drawProb, awayProb]
-        });
-    }
+        const dbStatements = [];
 
-    if (dbStatements.length > 0) {
+        // 3. חישוב אלגוריתמי ושמירה
+        for (const match of upcomingMatches) {
+            const title = `${match.home_team} vs ${match.away_team}`;
+            const bookmaker = match.bookmakers[0]; 
+            const h2h = bookmaker.markets.find(m => m.key === 'h2h').outcomes;
+
+            // חילוץ יחסים
+            const homeOdds = h2h.find(o => o.name === match.home_team)?.price || 3.0;
+            const awayOdds = h2h.find(o => o.name === match.away_team)?.price || 3.0;
+            const drawOdds = h2h.find(o => o.name === 'Draw')?.price || 3.0;
+
+            // המרה לאחוזים אמיתיים (ניקוי עמלות סוכן)
+            const rawHome = 1 / homeOdds;
+            const rawAway = 1 / awayOdds;
+            const rawDraw = 1 / drawOdds;
+            const totalMargin = rawHome + rawAway + rawDraw;
+
+            const homeProb = Math.round((rawHome / totalMargin) * 100);
+            const awayProb = Math.round((rawAway / totalMargin) * 100);
+            const drawProb = Math.round((rawDraw / totalMargin) * 100);
+
+            // חישוב פואסון לתוצאות מדויקות
+            const [exact1, exact2] = calculateExactScores(homeProb, awayProb);
+
+            dbStatements.push({
+                sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, exact_score_1, exact_score_2, kickoff_time) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                args: [title, homeProb, drawProb, awayProb, exact1, exact2, match.commence_time]
+            });
+        }
+
+        // 4. ביצוע השמירה
         await db.batch(dbStatements);
-    } else {
-        throw new Error("No fixtures were returned from the API to save.");
+
+        res.status(200).json({ success: true, message: `Synced ${dbStatements.length} World Cup matches with Poisson logic.` });
+
+    } catch (error) {
+        console.error("Sync error:", error);
+        res.status(500).json({ success: false, error: error.message });
     }
-
-    res.status(200).json({ success: true, message: `Synced ${fixtures.length} matches.` });
-
-  } catch (error) {
-    console.error('Sync Error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
 }
