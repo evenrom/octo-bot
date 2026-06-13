@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         const matches = await oddsResponse.json();
         
         // ניקח רק את 4 המשחקים הקרובים ביותר שיש להם יחסים
-        const upcomingMatches = matches.filter(m => m.bookmakers && m.bookmakers.length > 0).slice(0, 4);
+        const upcomingMatches = matches.filter(m => m.bookmakers && m.bookmakers.length > 0).slice(0, 6);
 
         if (upcomingMatches.length === 0) {
              throw new Error("No upcoming World Cup matches with odds found.");
