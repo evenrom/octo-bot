@@ -4,7 +4,6 @@ const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 const ODDS_API_HOST = 'api.the-odds-api.com';
 const SPORT = 'soccer_fifa_world_cup';
 
-// מילון קיצורי המדינות הרשמי (תומך בכל 32 הנבחרות)
 const commonNameToCode = {
     'Brazil': 'BRA', 'Argentina': 'ARG', 'Morocco': 'MAR', 'Haiti': 'HTI',
     'France': 'FRA', 'Germany': 'GER', 'Netherlands': 'NED', 'Portugal': 'POR',
@@ -27,68 +26,37 @@ const toThreeLetter = (name) => {
     return cleaned.slice(0, 3).toUpperCase();
 };
 
-// פונקציה חכמה שמושכת את המשחקים שהסתיימו מה-API (עד 14 ימים אחורה)
-const fetchRealHistoricalMatches = async () => {
-    // שימוש ב-endpoint של ה-scores שמחזיר תוצאות אמת בחינם
-    const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=14`;
+// בוטסטראפ: משחקי תחילת הטורניר (11.6 עד 14.6) כדי שהטבלה לא תהיה ריקה אף פעם
+const bootstrapMatches = [
+    { home: "Switzerland", away: "Bosnia & Herzegovina", homeScore: 4, awayScore: 1 },
+    { home: "Czech Republic", away: "South Africa", homeScore: 1, awayScore: 1 },
+    { home: "Mexico", away: "South Korea", homeScore: 1, awayScore: 0 },
+    { home: "Canada", away: "Qatar", homeScore: 6, awayScore: 0 },
+    { home: "United States", away: "Australia", homeScore: 2, away_score: 0 },
+    { home: "Scotland", away: "Morocco", homeScore: 0, awayScore: 1 },
+    { home: "Brazil", away: "Haiti", homeScore: 3, awayScore: 0 },
+    { home: "Switzerland", away: "Qatar", homeScore: 1, awayScore: 1 },
+    { home: "Canada", away: "Bosnia & Herzegovina", homeScore: 1, awayScore: 1 }
+];
+
+// משיכת תוצאות מ-3 הימים האחרונים בלבד (המקסימום המותר בחינם!)
+const fetchAllowedHistoricalMatches = async () => {
+    const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=3`;
     try {
         const response = await fetch(url);
         if (!response.ok) return [];
         const data = await response.json();
-        if (!Array.isArray(data)) return [];
-        
-        // מסננים רק משחקים שהסתיימו ויש להם מערך תוצאות רשמי
-        return data.filter(m => m.completed === true && Array.isArray(m.scores) && m.scores.length >= 2);
+        return Array.isArray(data) ? data.filter(m => m.completed === true && Array.isArray(m.scores)) : [];
     } catch (error) {
-        console.error("Error fetching tournament history:", error);
         return [];
     }
 };
 
-// חילוץ תוצאות בטוח לפי שמות הקבוצות
 const extractScores = (match) => {
-    try {
-        if (!match.scores || match.scores.length < 2) return null;
-        const home = match.scores.find(s => s.name === match.home_team);
-        const away = match.scores.find(s => s.name === match.away_team);
-        if (home && away && home.score !== null && away.score !== null) {
-            return { homeScore: Number(home.score), awayScore: Number(away.score) };
-        }
-    } catch (e) {
-        console.error("Error parsing scores", e);
-    }
-    return null;
-};
-
-// ייצור פורם דינמי לחלוטין מתוך מערך ההיסטוריה הגלובלי של הטורניר
-const generateFormFromResults = (teamName, historicalMatches) => {
-    const teamCode = toThreeLetter(teamName);
-    const teamMatches = [];
-
-    for (const match of historicalMatches) {
-        const homeCode = toThreeLetter(match.home_team);
-        const awayCode = toThreeLetter(match.away_team);
-
-        // בודקים אם הנבחרת הנוכחית השתתפה במשחק ההיסטורי הזה
-        if (homeCode !== teamCode && awayCode !== teamCode) continue;
-
-        const scores = extractScores(match);
-        if (!scores) continue;
-
-        const { homeScore, awayScore } = scores;
-        const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
-
-        if (homeCode === teamCode) {
-            let outcome = homeScore > awayScore ? 'W' : (homeScore < awayScore ? 'L' : 'D');
-            teamMatches.push({ summary, outcome });
-        } else {
-            let outcome = awayScore > homeScore ? 'W' : (awayScore < homeScore ? 'L' : 'D');
-            teamMatches.push({ summary, outcome });
-        }
-    }
-
-    // מחזיר את 3 המשחקים האחרונים של אותה נבחרת מתחילת הטורניר
-    return teamMatches.length > 0 ? teamMatches.slice(-3) : [{ summary: 'No matches', outcome: '' }];
+    if (!match.scores || match.scores.length < 2) return null;
+    const home = match.scores.find(s => s.name === match.home_team);
+    const away = match.scores.find(s => s.name === match.away_team);
+    return home && away && home.score !== null && away.score !== null ? { homeScore: Number(home.score), awayScore: Number(away.score) } : null;
 };
 
 export default async function handler(req, res) {
@@ -97,13 +65,37 @@ export default async function handler(req, res) {
     try {
         if (!THE_ODDS_API_KEY) throw new Error("API key missing.");
 
-        // 1. משיכת 6 המשחקים הבאים (Upcoming) מ-The Odds API
+        // 1. הגנת ריקון והזרקת נתוני ההתחלה לטבלת Results במידה והיא ריקה
+        const checkResults = await db.execute("SELECT COUNT(*) as count FROM Results");
+        if ((checkResults.rows[0]?.count || 0) === 0) {
+            const seedStatements = bootstrapMatches.map(m => ({
+                sql: `INSERT INTO Results (match_id, home_score, away_score, accuracy_points) VALUES (?, ?, ?, 1)`,
+                args: [`${m.home}_vs_${m.away}`, m.homeScore, m.awayScore]
+            }));
+            await db.batch(seedStatements);
+        }
+
+        // 2. הקלטת משחקים חדשים מה-API (3 ימים אחרונים) ישירות לתוך טבלת Results
+        const recentMatches = await fetchAllowedHistoricalMatches();
+        for (const match of recentMatches) {
+            const scores = extractScores(match);
+            if (scores) {
+                const matchId = `${match.home_team}_vs_${match.away_team}`;
+                await db.execute({
+                    sql: `INSERT OR REPLACE INTO Results (match_id, home_score, away_score, accuracy_points) VALUES (?, ?, ?, 1)`,
+                    args: [matchId, scores.homeScore, scores.awayScore]
+                });
+            }
+        }
+
+        // 3. משיכת 6 המשחקים הבאים (Upcoming)
         const oddsResponse = await fetch(`https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${THE_ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=decimal`);
         const allMatches = await oddsResponse.json();
         const upcomingMatches = allMatches.slice(0, 6);
 
-        // 2. משיכת כל תוצאות האמת של הטורניר בשבועיים האחרונים (דינמי ואוטומטי!)
-        const historicalMatches = await fetchRealHistoricalMatches();
+        // 4. שליפת כל היסטוריית הטורניר שנצברה מקומית ב-DB
+        const localHistory = await db.execute("SELECT match_id, home_score, away_score FROM Results");
+        const dbRows = localHistory.rows || [];
 
         const predictions = [];
 
@@ -121,20 +113,41 @@ export default async function handler(req, res) {
             const away_prob = Math.round(((1/awayOdds) / sumRaw) * 100);
             const draw_prob = 100 - home_prob - away_prob;
 
-            // יצירת פורם אוטומטי מלא ללא שום הזנה ידנית
-            const home_form = generateFormFromResults(match.home_team, historicalMatches);
-            const away_form = generateFormFromResults(match.away_team, historicalMatches);
+            // פונקציית סינון מקומית שבונה את ה-Form מתוך ה-DB המצטבר
+            const buildForm = (teamName) => {
+                const teamCode = toThreeLetter(teamName);
+                const matches = [];
+                for (const row of dbRows) {
+                    const parts = row.match_id.split('_vs_');
+                    if (parts.length !== 2) continue;
+                    const hCode = toThreeLetter(parts[0]);
+                    const aCode = toThreeLetter(parts[1]);
+
+                    if (hCode !== teamCode && aCode !== teamCode) continue;
+
+                    const hScore = Number(row.home_score);
+                    const aScore = Number(row.away_score);
+                    const summary = `${hCode} ${hScore}-${aScore} ${aCode}`;
+
+                    if (hCode === teamCode) {
+                        matches.push({ summary, outcome: hScore > aScore ? 'W' : (hScore < aScore ? 'L' : 'D') });
+                    } else {
+                        matches.push({ summary, outcome: aScore > hScore ? 'W' : (aScore < hScore ? 'L' : 'D') });
+                    }
+                }
+                return matches.length > 0 ? matches.slice(-3) : [{ summary: 'No matches', outcome: '' }];
+            };
 
             predictions.push({
                 match_title: `${match.home_team} vs ${match.away_team}`,
                 home_prob, draw_prob, away_prob,
                 kickoff_time: match.commence_time,
-                home_form: JSON.stringify(home_form),
-                away_form: JSON.stringify(away_form)
+                home_form: JSON.stringify(buildForm(match.home_team)),
+                away_form: JSON.stringify(buildForm(match.away_team))
             });
         }
 
-        // 3. מחיקת המידע הישן והכנסת התחזיות החדשות והפורם האמיתי ל-DB
+        // 5. עדכון טבלת התחזיות למסך
         await db.execute('DELETE FROM Predictions');
         const insertStatements = predictions.map(p => ({
             sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, kickoff_time, home_form, away_form) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -142,7 +155,7 @@ export default async function handler(req, res) {
         }));
         await db.batch(insertStatements);
 
-        res.status(200).json({ success: true, message: "Successfully synced using 100% automated real-time data." });
+        res.status(200).json({ success: true, message: "Successfully synced via safe 3-day window & DB recorder." });
     } catch (error) {
         console.error("Sync error:", error);
         res.status(500).json({ success: false, error: error.message });
