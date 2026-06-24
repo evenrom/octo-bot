@@ -62,9 +62,9 @@ const toThreeLetter = (name) => {
     return initials.padEnd(3, 'X').slice(0, 3);
 };
 
-// Fetch historical match results from The Odds API
+// Fetch historical match results from The Odds API (last 7 days)
 const fetchHistoricalMatches = async () => {
-    const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=3`;
+    const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=7`;
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -72,11 +72,54 @@ const fetchHistoricalMatches = async () => {
             return [];
         }
         const data = await response.json();
-        return data || [];
+
+        // Filter for completed matches only (or where scores array contains real score values)
+        if (!Array.isArray(data)) return [];
+
+        const completed = data.filter(m => {
+            if (m.completed === true) return true;
+            if (Array.isArray(m.scores)) {
+                return m.scores.some(s => s && s.score !== null && s.score !== undefined);
+            }
+            return false;
+        });
+
+        return completed;
     } catch (error) {
         console.warn(`Error fetching historical matches: ${error.message}`);
         return [];
     }
+};
+
+// Helper: extract numeric scores safely from a match object
+const extractScores = (match, homeTeam, awayTeam) => {
+    // Try known shapes: match.scores = [{ name, score }, ...]
+    if (Array.isArray(match.scores) && match.scores.length > 0) {
+        const findByName = (team) => {
+            const entry = match.scores.find(s => s && String(s.name).trim().toLowerCase() === String(team).trim().toLowerCase());
+            if (entry && (entry.score !== null && entry.score !== undefined)) return Number(entry.score);
+            return null;
+        };
+
+        const h = findByName(homeTeam);
+        const a = findByName(awayTeam);
+        if (h !== null && a !== null) return { homeScore: h, awayScore: a };
+    }
+
+    // Try common flat fields
+    const altHome = match.home_score ?? match.homeTeamScore ?? match.homeTeamScoreFull ?? null;
+    const altAway = match.away_score ?? match.awayTeamScore ?? match.awayTeamScoreFull ?? null;
+    if (altHome !== null && altAway !== null) {
+        return { homeScore: Number(altHome), awayScore: Number(altAway) };
+    }
+
+    // As a last resort, if match has score_summary-like fields
+    if (match.score && typeof match.score === 'string') {
+        const m = match.score.match(/(\d+)\D+(\d+)/);
+        if (m) return { homeScore: Number(m[1]), awayScore: Number(m[2]) };
+    }
+
+    return null;
 };
 
 // Generate real form from historical matches (last 3 completed matches)
@@ -85,43 +128,39 @@ const generateRealForm = (teamName, historicalMatches) => {
     const teamMatches = [];
 
     for (const match of historicalMatches) {
-        const homeTeam = match.home_team;
-        const awayTeam = match.away_team;
+        const homeTeam = match.home_team || match.homeTeam || '';
+        const awayTeam = match.away_team || match.awayTeam || '';
         const homeCode = toThreeLetter(homeTeam);
         const awayCode = toThreeLetter(awayTeam);
 
-        // Check if our team is in this match
-        if (homeCode === teamCode) {
-            // Team is home team
-            const homeScore = match.scores?.find(s => s.name === homeTeam)?.score || 0;
-            const awayScore = match.scores?.find(s => s.name === awayTeam)?.score || 0;
-            const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
+        // Ensure both sides exist
+        if (!homeTeam || !awayTeam) continue;
 
-            // Determine outcome from our team's perspective (home team)
-            let outcome;
+        const scores = extractScores(match, homeTeam, awayTeam);
+        if (!scores) continue; // skip matches without reliable scores
+
+        const { homeScore, awayScore } = scores;
+        const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
+
+        if (homeCode === teamCode) {
+            let outcome = 'D';
             if (homeScore > awayScore) outcome = 'W';
             else if (homeScore < awayScore) outcome = 'L';
-            else outcome = 'D';
-
             teamMatches.push({ summary, outcome });
         } else if (awayCode === teamCode) {
-            // Team is away team
-            const homeScore = match.scores?.find(s => s.name === homeTeam)?.score || 0;
-            const awayScore = match.scores?.find(s => s.name === awayTeam)?.score || 0;
-            const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
-
-            // Determine outcome from our team's perspective (away team)
-            let outcome;
+            let outcome = 'D';
             if (awayScore > homeScore) outcome = 'W';
             else if (awayScore < homeScore) outcome = 'L';
-            else outcome = 'D';
-
             teamMatches.push({ summary, outcome });
         }
     }
 
-    // Return the last 3 matches (or fewer if not available), filter out empty strings
-    return teamMatches.slice(-3).filter(m => m.summary);
+    if (teamMatches.length === 0) {
+        return [{ summary: 'No matches', outcome: '' }];
+    }
+
+    // Return the last 3 matches (or fewer if not available)
+    return teamMatches.slice(-3);
 };
 
 export default async function handler(req, res) {
