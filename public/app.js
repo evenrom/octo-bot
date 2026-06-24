@@ -237,6 +237,50 @@ function renderData(data) {
 }
 
 // Create individual prediction card
+function parseFormData(formData) {
+    if (!formData) return [];
+
+    if (typeof formData === 'string') {
+        try {
+            const parsed = JSON.parse(formData);
+            if (Array.isArray(parsed)) return parsed;
+            if (parsed && typeof parsed === 'object') return Object.values(parsed);
+            return [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    if (Array.isArray(formData)) return formData;
+    if (typeof formData === 'object') return Object.values(formData);
+    return [];
+}
+
+function renderFormHtml(formArray) {
+    const renderedItems = formArray.slice(0, 3).map(match => {
+        const logoSrc = match?.logo || '';
+        const altText = match?.opponent ? `${match.opponent} logo` : 'opponent logo';
+        const outcome = match?.outcome || '';
+
+        let outcomeClass = '';
+        if (outcome === 'W') outcomeClass = 'form-win';
+        else if (outcome === 'D') outcomeClass = 'form-draw';
+        else if (outcome === 'L') outcomeClass = 'form-loss';
+
+        return `
+            <div class="form-indicator ${outcomeClass}">
+                <img src="${logoSrc}" alt="${altText}" />
+            </div>
+        `;
+    }).join('');
+
+    if (!renderedItems) {
+        return `<div class="text-[11px] text-[#dae2fd]/50">No recent matches</div>`;
+    }
+
+    return `<div class="form-container">${renderedItems}</div>`;
+}
+
 function createPredictionCard(prediction) {
     const {
         match_title,
@@ -244,13 +288,19 @@ function createPredictionCard(prediction) {
         home_prob,
         draw_prob,
         away_prob,
-        exact_score_1,
-        exact_score_2
+        home_form,
+        away_form
     } = prediction;
 
     const homePercent = home_prob !== undefined ? Math.round(home_prob) : 0;
     const drawPercent = draw_prob !== undefined ? Math.round(draw_prob) : 0;
     const awayPercent = away_prob !== undefined ? Math.round(away_prob) : 0;
+
+    const homeFormData = parseFormData(home_form);
+    const awayFormData = parseFormData(away_form);
+
+    const homeFormHtml = renderFormHtml(homeFormData);
+    const awayFormHtml = renderFormHtml(awayFormData);
 
     const card = document.createElement('div');
     card.className = 'bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-5 hover:border-[#39ff14]/40 transition-all flex flex-col';
@@ -278,13 +328,13 @@ function createPredictionCard(prediction) {
         </div>
 
         <div class="mt-auto grid grid-cols-2 gap-2">
-            <div class="bg-black/20 rounded p-3 text-center border border-white/5">
-                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Option A</div>
-                <div class="text-lg font-bold text-[#39ff14] font-jetbrains-mono">${exact_score_1 || 'TBD'}</div>
+            <div class="bg-black/20 rounded p-3 border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-3 font-sora">Home Team Form</div>
+                ${homeFormHtml}
             </div>
-            <div class="bg-black/20 rounded p-3 text-center border border-white/5">
-                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-1 font-sora">Option B</div>
-                <div class="text-lg font-bold text-[#39ff14] font-jetbrains-mono">${exact_score_2 || 'TBD'}</div>
+            <div class="bg-black/20 rounded p-3 border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-3 font-sora">Away Team Form</div>
+                ${awayFormHtml}
             </div>
         </div>
     `;

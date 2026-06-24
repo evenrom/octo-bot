@@ -1,38 +1,62 @@
+
 import { db } from '../lib/db.js';
 
-// פנייה למשתנה כפי שהוא מוגדר אצלך ב-Vercel
-const ODDS_API_KEY = process.env.THE_ODDS_API_KEY; 
+const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
+const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
 const ODDS_API_HOST = 'api.the-odds-api.com';
-const SPORT = 'soccer_fifa_world_cup'; // הליגה של המונדיאל!
+const API_FOOTBALL_HOST = 'v3.football.api-sports.io';
+const SPORT = 'soccer_fifa_world_cup';
 
-// --- פונקציות עזר: מתמטיקה ופואסון ---
-function factorial(n) {
-  if (n === 0 || n === 1) return 1;
-  return n * factorial(n - 1);
-}
-
-function poisson(k, lambda) {
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
-}
-
-function calculateExactScores(homeProb, awayProb) {
-  // המרת אחוזים לתוחלת שערים משוערת (Lambda)
-  const homeLambda = (homeProb / 100) * 2.5; 
-  const awayLambda = (awayProb / 100) * 2.5;
-
-  let scores = [];
-  // סריקת תוצאות מ-0:0 ועד 4:4
-  for (let h = 0; h <= 4; h++) {
-    for (let a = 0; a <= 4; a++) {
-      const probability = poisson(h, homeLambda) * poisson(a, awayLambda);
-      scores.push({ score: `${h}-${a}`, prob: probability });
+// Helper to find team ID from API-Football
+const getTeamId = async (teamName) => {
+    const url = `https://${API_FOOTBALL_HOST}/teams?name=${encodeURIComponent(teamName)}`;
+    const response = await fetch(url, {
+        headers: { 'x-apisports-key': API_FOOTBALL_KEY }
+    });
+    if (!response.ok) {
+        console.error(`API-Football team search failed for ${teamName}:`, await response.text());
+        return null;
     }
-  }
+    const data = await response.json();
+    // Assuming the first result is the correct one
+    return data.response[0]?.team.id;
+};
 
-  // מיון ובחירת 2 התוצאות המובילות
-  scores.sort((a, b) => b.prob - a.prob);
-  return [scores[0].score, scores[1].score];
-}
+// Helper to get team form
+const getTeamForm = async (teamId) => {
+    if (!teamId) return [];
+    const url = `https://${API_FOOTBALL_HOST}/fixtures?team=${teamId}&last=3`;
+    const response = await fetch(url, {
+        headers: { 'x-apisports-key': API_FOOTBALL_KEY }
+    });
+    if (!response.ok) {
+        console.error(`API-Football fixtures fetch failed for team ${teamId}:`, await response.text());
+        return [];
+    }
+    const data = await response.json();
+
+    return data.response.map(fixture => {
+        const teams = fixture.teams;
+        const goals = fixture.goals;
+        const isHomeTeam = teams.home.id === teamId;
+        const opponent = isHomeTeam ? teams.away : teams.home;
+
+        let outcome = 'D';
+        if (isHomeTeam) {
+            if (goals.home > goals.away) outcome = 'W';
+            if (goals.home < goals.away) outcome = 'L';
+        } else { // is away team
+            if (goals.away > goals.home) outcome = 'W';
+            if (goals.away < goals.home) outcome = 'L';
+        }
+
+        return {
+            logo: opponent.logo,
+            outcome: outcome
+        };
+    });
+};
+
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -40,69 +64,84 @@ export default async function handler(req, res) {
     }
 
     try {
-        if (!ODDS_API_KEY) {
-            throw new Error("Odds API key is missing. Check your Vercel settings.");
+        if (!THE_ODDS_API_KEY || !API_FOOTBALL_KEY) {
+            throw new Error("API key(s) are missing.");
         }
 
-        // 1. Fetch upcoming matches and odds
+        // 1. Fetch upcoming matches from The Odds API
         const oddsResponse = await fetch(
-            `https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h`
+            `https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${THE_ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=decimal`
         );
 
         if (!oddsResponse.ok) {
-            const errData = await oddsResponse.text();
-            throw new Error(`Odds API Unauthorized or Error: ${errData}`);
+            throw new Error(`The Odds API request failed: ${await oddsResponse.text()}`);
         }
 
-        const matches = await oddsResponse.json();
-        
-        // ניקח רק את 4 המשחקים הקרובים ביותר שיש להם יחסים
-        const upcomingMatches = matches.filter(m => m.bookmakers && m.bookmakers.length > 0).slice(0, 6);
+        const allMatches = await oddsResponse.json();
+        const upcomingMatches = allMatches
+            .filter(m => m.bookmakers?.some(b => b.markets?.some(market => market.key === 'h2h')))
+            .slice(0, 6);
 
         if (upcomingMatches.length === 0) {
-             throw new Error("No upcoming World Cup matches with odds found.");
+            return res.status(200).json({ success: true, message: "No upcoming matches with h2h odds found." });
         }
 
-        // 2. ניקוי הטבלה הישנה כדי לשמור רק את המשחקים החדשים
-        await db.execute('DELETE FROM Predictions');
+        const predictions = [];
 
-        const dbStatements = [];
-
-        // 3. חישוב אלגוריתמי ושמירה
         for (const match of upcomingMatches) {
-            const title = `${match.home_team} vs ${match.away_team}`;
-            const bookmaker = match.bookmakers[0]; 
-            const h2h = bookmaker.markets.find(m => m.key === 'h2h').outcomes;
+            // 2. Calculate true probabilities
+            const bookmaker = match.bookmakers[0];
+            const h2hMarket = bookmaker.markets.find(m => m.key === 'h2h');
+            const outcomes = h2hMarket.outcomes;
 
-            // חילוץ יחסים
-            const homeOdds = h2h.find(o => o.name === match.home_team)?.price || 3.0;
-            const awayOdds = h2h.find(o => o.name === match.away_team)?.price || 3.0;
-            const drawOdds = h2h.find(o => o.name === 'Draw')?.price || 3.0;
+            const homeOdds = outcomes.find(o => o.name === match.home_team)?.price || 3.0;
+            const awayOdds = outcomes.find(o => o.name === match.away_team)?.price || 3.0;
+            const drawOdds = outcomes.find(o => o.name === 'Draw')?.price || 3.0;
 
-            // המרה לאחוזים אמיתיים (ניקוי עמלות סוכן)
             const rawHome = 1 / homeOdds;
             const rawAway = 1 / awayOdds;
             const rawDraw = 1 / drawOdds;
             const totalMargin = rawHome + rawAway + rawDraw;
 
-            const homeProb = Math.round((rawHome / totalMargin) * 100);
-            const awayProb = Math.round((rawAway / totalMargin) * 100);
-            const drawProb = Math.round((rawDraw / totalMargin) * 100);
+            const home_prob = (rawHome / totalMargin);
+            const away_prob = (rawAway / totalMargin);
+            const draw_prob = (rawDraw / totalMargin);
+            
+            // 3. Fetch Team Form (API-Football)
+            const homeTeamName = match.home_team;
+            const awayTeamName = match.away_team;
+            
+            const homeTeamId = await getTeamId(homeTeamName);
+            const awayTeamId = await getTeamId(awayTeamName);
 
-            // חישוב פואסון לתוצאות מדויקות
-            const [exact1, exact2] = calculateExactScores(homeProb, awayProb);
+            const home_form = await getTeamForm(homeTeamId);
+            const away_form = await getTeamForm(awayTeamId);
 
-            dbStatements.push({
-                sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, exact_score_1, exact_score_2, kickoff_time) 
-                      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                args: [title, homeProb, drawProb, awayProb, exact1, exact2, match.commence_time]
+            predictions.push({
+                match_title: `${homeTeamName} vs ${awayTeamName}`,
+                home_prob,
+                draw_prob,
+                away_prob,
+                kickoff_time: match.commence_time,
+                home_form: JSON.stringify(home_form),
+                away_form: JSON.stringify(away_form)
             });
         }
 
-        // 4. ביצוע השמירה
-        await db.batch(dbStatements);
+        // 4. Clear old data and batch insert new records
+        await db.execute('DELETE FROM Predictions');
+        
+        const insertStatements = predictions.map(p => ({
+            sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, kickoff_time, home_form, away_form) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [p.match_title, p.home_prob, p.draw_prob, p.away_prob, p.kickoff_time, p.home_form, p.away_form]
+        }));
+        
+        if (insertStatements.length > 0) {
+            await db.batch(insertStatements);
+        }
 
-        res.status(200).json({ success: true, message: `Synced ${dbStatements.length} World Cup matches with Poisson logic.` });
+        res.status(200).json({ success: true, message: `Synced ${predictions.length} matches.` });
 
     } catch (error) {
         console.error("Sync error:", error);

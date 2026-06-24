@@ -3,7 +3,7 @@ import { db } from '../lib/db.js';
 export default async function handler(req, res) {
   try {
     const predictionsResult = await db.execute(`
-      SELECT id, match_title, home_prob, draw_prob, away_prob, exact_score_1, exact_score_2, kickoff_time
+      SELECT id, match_title, home_prob, draw_prob, away_prob, home_form, away_form, kickoff_time
       FROM Predictions
       ORDER BY kickoff_time
     `);
