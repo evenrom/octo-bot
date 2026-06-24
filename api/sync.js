@@ -5,71 +5,123 @@ const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 const ODDS_API_HOST = 'api.the-odds-api.com';
 const SPORT = 'soccer_fifa_world_cup';
 
-// Generate a mock form array of 3 recent matches for a team
-const generateMockForm = (teamName, strengthPercent) => {
-    const entries = [];
-    // choose weights based on strength
-    let weights;
-    if (strengthPercent >= 60) weights = { W: 0.65, D: 0.25, L: 0.1 };
-    else if (strengthPercent > 50) weights = { W: 0.55, D: 0.3, L: 0.15 };
-    else if (strengthPercent > 40) weights = { W: 0.35, D: 0.3, L: 0.35 };
-    else weights = { W: 0.15, D: 0.25, L: 0.6 };
+// Team name to 3-letter code mapping
+const commonNameToCode = {
+    'Brazil': 'BRA',
+    'Argentina': 'ARG',
+    'Morocco': 'MAR',
+    'Haiti': 'HTI',
+    'France': 'FRA',
+    'Germany': 'GER',
+    'Netherlands': 'NED',
+    'Portugal': 'POR',
+    'Spain': 'ESP',
+    'England': 'ENG',
+    'United States': 'USA',
+    'USA': 'USA',
+    'Belgium': 'BEL',
+    'Croatia': 'CRO',
+    'Denmark': 'DEN',
+    'Switzerland': 'SUI',
+    'Sweden': 'SWE',
+    'Norway': 'NOR',
+    'Italy': 'ITA',
+    'Poland': 'POL',
+    'Mexico': 'MEX',
+    'Canada': 'CAN',
+    'Japan': 'JPN',
+    'South Korea': 'KOR',
+    'Korea': 'KOR',
+    'Australia': 'AUS',
+    'Saudi Arabia': 'KSA',
+    'Iran': 'IRN',
+    'Ecuador': 'ECU',
+    'Peru': 'PER',
+    'Uruguay': 'URU',
+    'Colombia': 'COL',
+    'Senegal': 'SEN',
+    'Tunisia': 'TUN',
+    'Egypt': 'EGY',
+    'Ghana': 'GHA',
+    'Nigeria': 'NGA',
+    'Cameroon': 'CMR',
+    'Serbia': 'SRB',
+    'Qatar': 'QAT'
+};
 
-    const pickOutcome = () => {
-        const r = Math.random();
-        if (r < weights.W) return 'W';
-        if (r < weights.W + weights.D) return 'D';
-        return 'L';
-    };
+// Convert team name to 3-letter code
+const toThreeLetter = (name) => {
+    if (!name) return 'TBD';
+    if (commonNameToCode[name]) return commonNameToCode[name];
+    const cleaned = name.replace(/[^A-Za-z ]/g, '').trim();
+    if (commonNameToCode[cleaned]) return commonNameToCode[cleaned];
+    const parts = cleaned.split(' ');
+    if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+    // e.g., United States -> USA
+    const initials = parts.map(p => p.charAt(0)).join('').slice(0, 3).toUpperCase();
+    return initials.padEnd(3, 'X').slice(0, 3);
+};
 
-    const WORLD_CUP_TEAMS = ['ARG','BRA','FRA','GER','ENG','ESP','POR','NED','BEL','URU','COL','MEX','SEN','JPN','KOR','USA','NGA','MAR','TUN','CRO','SUI','SRB','POL','AUS','CAN','CMR','GHA','EGY','IRN','KSA','QAT','ECU','PER','HTI','ISL'];
-
-    const commonNameToCode = {
-        'Brazil': 'BRA',
-        'Argentina': 'ARG',
-        'Morocco': 'MAR',
-        'Haiti': 'HTI',
-        'France': 'FRA',
-        'Germany': 'GER',
-        'Netherlands': 'NED',
-        'Portugal': 'POR',
-        'Spain': 'ESP',
-        'England': 'ENG',
-        'United States': 'USA',
-        'USA': 'USA'
-    };
-
-    const toThreeLetter = (name) => {
-        if (!name) return 'TBD';
-        if (commonNameToCode[name]) return commonNameToCode[name];
-        const cleaned = name.replace(/[^A-Za-z ]/g, '').trim();
-        if (commonNameToCode[cleaned]) return commonNameToCode[cleaned];
-        const parts = cleaned.split(' ');
-        if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
-        // e.g., United States -> USA
-        const initials = parts.map(p => p.charAt(0)).join('').slice(0, 3).toUpperCase();
-        return initials.padEnd(3, 'X').slice(0, 3);
-    };
-
-    const possibleScores = ['0-0','1-0','0-1','1-1','2-1','1-2','2-0','0-2','3-0','3-1'];
-    const teamCode = toThreeLetter(teamName);
-    for (let i = 0; i < 3; i++) {
-        // pick an opponent different from the team
-        let opponent = WORLD_CUP_TEAMS[Math.floor(Math.random() * WORLD_CUP_TEAMS.length)];
-        if (opponent === teamCode) {
-            opponent = WORLD_CUP_TEAMS[(Math.floor(Math.random() * (WORLD_CUP_TEAMS.length - 1)))];
-            if (opponent === teamCode) opponent = 'TBD';
+// Fetch historical match results from The Odds API
+const fetchHistoricalMatches = async () => {
+    const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=3`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.warn(`Failed to fetch historical matches: ${response.status}`);
+            return [];
         }
-        const score = possibleScores[Math.floor(Math.random() * possibleScores.length)];
-        const summary = `${teamCode} ${score} ${opponent}`;
+        const data = await response.json();
+        return data || [];
+    } catch (error) {
+        console.warn(`Error fetching historical matches: ${error.message}`);
+        return [];
+    }
+};
 
-        entries.push({
-            summary,
-            outcome: pickOutcome()
-        });
+// Generate real form from historical matches (last 3 completed matches)
+const generateRealForm = (teamName, historicalMatches) => {
+    const teamCode = toThreeLetter(teamName);
+    const teamMatches = [];
+
+    for (const match of historicalMatches) {
+        const homeTeam = match.home_team;
+        const awayTeam = match.away_team;
+        const homeCode = toThreeLetter(homeTeam);
+        const awayCode = toThreeLetter(awayTeam);
+
+        // Check if our team is in this match
+        if (homeCode === teamCode) {
+            // Team is home team
+            const homeScore = match.scores?.find(s => s.name === homeTeam)?.score || 0;
+            const awayScore = match.scores?.find(s => s.name === awayTeam)?.score || 0;
+            const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
+
+            // Determine outcome from our team's perspective (home team)
+            let outcome;
+            if (homeScore > awayScore) outcome = 'W';
+            else if (homeScore < awayScore) outcome = 'L';
+            else outcome = 'D';
+
+            teamMatches.push({ summary, outcome });
+        } else if (awayCode === teamCode) {
+            // Team is away team
+            const homeScore = match.scores?.find(s => s.name === homeTeam)?.score || 0;
+            const awayScore = match.scores?.find(s => s.name === awayTeam)?.score || 0;
+            const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
+
+            // Determine outcome from our team's perspective (away team)
+            let outcome;
+            if (awayScore > homeScore) outcome = 'W';
+            else if (awayScore < homeScore) outcome = 'L';
+            else outcome = 'D';
+
+            teamMatches.push({ summary, outcome });
+        }
     }
 
-    return entries;
+    // Return the last 3 matches (or fewer if not available), filter out empty strings
+    return teamMatches.slice(-3).filter(m => m.summary);
 };
 
 export default async function handler(req, res) {
@@ -100,10 +152,13 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, message: "No upcoming matches with h2h odds found." });
         }
 
+        // 2. Fetch historical match results for form data
+        const historicalMatches = await fetchHistoricalMatches();
+
         const predictions = [];
 
         for (const match of upcomingMatches) {
-            // 2. Extract odds from the first bookmaker with an h2h market
+            // 3. Extract odds from the first bookmaker with an h2h market
             const bookmaker = match.bookmakers.find(b => b.markets?.some(m => m.key === 'h2h'));
             const h2hMarket = bookmaker?.markets.find(m => m.key === 'h2h');
             const outcomes = h2hMarket?.outcomes || [];
@@ -174,12 +229,12 @@ export default async function handler(req, res) {
 
             const [home_prob, away_prob, draw_prob] = rounded;
 
-            // 3. Generate Mock Forms for teams
+            // 4. Generate real forms for teams using historical matches
             const homeTeamName = match.home_team;
             const awayTeamName = match.away_team;
 
-            const home_form = generateMockForm(homeTeamName, home_prob);
-            const away_form = generateMockForm(awayTeamName, away_prob);
+            const home_form = generateRealForm(homeTeamName, historicalMatches);
+            const away_form = generateRealForm(awayTeamName, historicalMatches);
 
             predictions.push({
                 match_title: `${homeTeamName} vs ${awayTeamName}`,
@@ -192,7 +247,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // 4. Clear old data and batch insert new records
+        // 5. Clear old data and batch insert new records
         await db.execute('DELETE FROM Predictions');
         
         const insertStatements = predictions.map(p => ({
