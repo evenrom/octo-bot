@@ -29,7 +29,6 @@ const toThreeLetter = (name) => {
 
 // פונקציה חכמה שמושכת את תוצאות האמת של הטורניר שבועיים אחורה
 const fetchRealHistoricalMatches = async () => {
-    // daysFrom=15 הולך שבועיים אחורה ותופס את כל הטורניר שהתחיל ב-11.6 בקשה חופשית מה-API
     const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=15`;
     try {
         const response = await fetch(url);
@@ -37,21 +36,40 @@ const fetchRealHistoricalMatches = async () => {
         const data = await response.json();
         if (!Array.isArray(data)) return [];
         
-        // סינון משחקים שהסתיימו ויש להם תוצאה
-        return data.filter(m => m.completed === true && Array.isArray(m.scores));
+        // סינון משחקים שיש להם מערך תוצאות כלשהו
+        return data.filter(m => Array.isArray(m.scores) && m.scores.length >= 2);
     } catch (error) {
         console.error("Error fetching history:", error);
         return [];
     }
 };
 
-// חילוץ תוצאות מובנה מה-API
+// חילוץ תוצאות חסין תקלות לפי סדר הופעת הקבוצות באובייקט
 const extractScores = (match) => {
-    if (!match.scores || match.scores.length < 2) return null;
-    const home = match.scores.find(s => s.name === match.home_team);
-    const away = match.scores.find(s => s.name === match.away_team);
-    if (home && away) {
-        return { homeScore: Number(home.score), awayScore: Number(away.score) };
+    try {
+        if (!match.scores || match.scores.length < 2) return null;
+        
+        // ניסיון ראשון: התאמה לפי שם מדויק
+        const homeScoreObj = match.scores.find(s => s.name === match.home_team);
+        const awayScoreObj = match.scores.find(s => s.name === match.away_team);
+        
+        if (homeScoreObj && awayScoreObj && homeScoreObj.score !== null && awayScoreObj.score !== null) {
+            return { homeScore: Number(homeScoreObj.score), awayScore: Number(awayScoreObj.score) };
+        }
+        
+        // ניסיון שני (Fallback): לקיחת הערכים לפי המיקום במערך אם השמות לא תואמים ב-100%
+        const score1 = match.scores[0]?.score;
+        const score2 = match.scores[1]?.score;
+        
+        if (score1 !== null && score2 !== null && score1 !== undefined && score2 !== undefined) {
+            // ה-API מסדר את המערך לפי קבוצת הבית ראשונה או לפי סדר הקבוצות במשחק
+            if (match.scores[0].name === match.away_team) {
+                return { homeScore: Number(score2), awayScore: Number(score1) };
+            }
+            return { homeScore: Number(score1), awayScore: Number(score2) };
+        }
+    } catch (e) {
+        console.error("Error extracting scores for match", match.id, e);
     }
     return null;
 };
