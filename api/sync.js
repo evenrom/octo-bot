@@ -15,15 +15,25 @@ const commonNameToCode = {
     'Korea': 'KOR', 'Australia': 'AUS', 'Saudi Arabia': 'KSA', 'Iran': 'IRN',
     'Ecuador': 'ECU', 'Peru': 'PER', 'Uruguay': 'URU', 'Colombia': 'COL',
     'Senegal': 'SEN', 'Tunisia': 'TUN', 'Egypt': 'EGY', 'Ghana': 'GHA',
-    'Nigeria': 'NGA', 'Cameroon': 'CMR', 'Serbia': 'SRB', 'Qatar': 'QAT'
+    'Nigeria': 'NGA', 'Cameroon': 'CMR', 'Serbia': 'SRB', 'Qatar': 'QAT',
+    'Bosnia & Herzegovina': 'BIH', 'Bosnia Herzegovina': 'BIH',
+    'Czech Republic': 'CZE', 'South Africa': 'ZAF', 'Scotland': 'SCO'
 };
 
 const toThreeLetter = (name) => {
     if (!name) return 'TBD';
-    if (commonNameToCode[name]) return commonNameToCode[name];
-    const cleaned = name.replace(/[^A-Za-z ]/g, '').trim();
+    const normalizedName = name.trim();
+    if (commonNameToCode[normalizedName]) return commonNameToCode[normalizedName];
+    const cleaned = normalizedName.replace(/[^A-Za-z ]/g, '').trim();
     if (commonNameToCode[cleaned]) return commonNameToCode[cleaned];
-    const parts = cleaned.split(' ');
+    const lower = normalizedName.toLowerCase();
+    const lowerCleaned = cleaned.toLowerCase();
+    for (const key of Object.keys(commonNameToCode)) {
+        if (key.toLowerCase() === lower || key.toLowerCase() === lowerCleaned) {
+            return commonNameToCode[key];
+        }
+    }
+    const parts = cleaned.split(' ').filter(Boolean);
     if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
     return parts.map(p => p.charAt(0)).join('').slice(0, 3).toUpperCase().padEnd(3, 'X');
 };
@@ -73,18 +83,18 @@ async function generateRealFormFromDB(teamName) {
         const homeCode = toThreeLetter(homeTeam);
         const awayCode = toThreeLetter(awayTeam);
 
-        if (homeTeam !== teamName && awayTeam !== teamName) continue;
+        if (homeCode !== teamCode && awayCode !== teamCode) continue;
 
         const homeScore = Number(row.home_score);
         const awayScore = Number(row.away_score);
         const summary = `${homeCode} ${homeScore}-${awayScore} ${awayCode}`;
 
-        if (homeTeam === teamName) {
+        if (homeCode === teamCode) {
             let outcome = 'D';
             if (homeScore > awayScore) outcome = 'W';
             else if (homeScore < awayScore) outcome = 'L';
             teamMatches.push({ summary, outcome });
-        } else if (awayTeam === teamName) {
+        } else {
             let outcome = 'D';
             if (awayScore > homeScore) outcome = 'W';
             else if (awayScore < homeScore) outcome = 'L';
