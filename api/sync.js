@@ -22,9 +22,49 @@ const generateMockForm = (teamName, strengthPercent) => {
         return 'L';
     };
 
+    const WORLD_CUP_TEAMS = ['ARG','BRA','FRA','GER','ENG','ESP','POR','NED','BEL','URU','COL','MEX','SEN','JPN','KOR','USA','NGA','MAR','TUN','CRO','SUI','SRB','POL','AUS','CAN','CMR','GHA','EGY','IRN','KSA','QAT','ECU','PER','HTI','ISL'];
+
+    const commonNameToCode = {
+        'Brazil': 'BRA',
+        'Argentina': 'ARG',
+        'Morocco': 'MAR',
+        'Haiti': 'HTI',
+        'France': 'FRA',
+        'Germany': 'GER',
+        'Netherlands': 'NED',
+        'Portugal': 'POR',
+        'Spain': 'ESP',
+        'England': 'ENG',
+        'United States': 'USA',
+        'USA': 'USA'
+    };
+
+    const toThreeLetter = (name) => {
+        if (!name) return 'TBD';
+        if (commonNameToCode[name]) return commonNameToCode[name];
+        const cleaned = name.replace(/[^A-Za-z ]/g, '').trim();
+        if (commonNameToCode[cleaned]) return commonNameToCode[cleaned];
+        const parts = cleaned.split(' ');
+        if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+        // e.g., United States -> USA
+        const initials = parts.map(p => p.charAt(0)).join('').slice(0, 3).toUpperCase();
+        return initials.padEnd(3, 'X').slice(0, 3);
+    };
+
+    const possibleScores = ['0-0','1-0','0-1','1-1','2-1','1-2','2-0','0-2','3-0','3-1'];
+    const teamCode = toThreeLetter(teamName);
     for (let i = 0; i < 3; i++) {
+        // pick an opponent different from the team
+        let opponent = WORLD_CUP_TEAMS[Math.floor(Math.random() * WORLD_CUP_TEAMS.length)];
+        if (opponent === teamCode) {
+            opponent = WORLD_CUP_TEAMS[(Math.floor(Math.random() * (WORLD_CUP_TEAMS.length - 1)))];
+            if (opponent === teamCode) opponent = 'TBD';
+        }
+        const score = possibleScores[Math.floor(Math.random() * possibleScores.length)];
+        const summary = `${teamCode} ${score} ${opponent}`;
+
         entries.push({
-            logo: `https://via.placeholder.com/32?text=${encodeURIComponent((teamName || 'T').charAt(0))}`,
+            summary,
             outcome: pickOutcome()
         });
     }

@@ -258,9 +258,8 @@ function parseFormData(formData) {
 
 function renderFormHtml(formArray) {
     const renderedItems = formArray.slice(0, 3).map(match => {
-        const logoSrc = match?.logo || '';
-        const altText = match?.opponent ? `${match.opponent} logo` : 'opponent logo';
         const outcome = match?.outcome || '';
+        const summaryText = match?.summary || '';
 
         let outcomeClass = '';
         if (outcome === 'W') outcomeClass = 'form-win';
@@ -268,9 +267,7 @@ function renderFormHtml(formArray) {
         else if (outcome === 'L') outcomeClass = 'form-loss';
 
         return `
-            <div class="form-indicator ${outcomeClass}">
-                <img src="${logoSrc}" alt="${altText}" />
-            </div>
+            <div class="form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded">${summaryText}</div>
         `;
     }).join('');
 
