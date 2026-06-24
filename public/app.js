@@ -292,9 +292,16 @@ function createPredictionCard(prediction) {
         away_form
     } = prediction;
 
-    const homePercent = home_prob !== undefined ? Math.round(home_prob) : 0;
-    const drawPercent = draw_prob !== undefined ? Math.round(draw_prob) : 0;
-    const awayPercent = away_prob !== undefined ? Math.round(away_prob) : 0;
+    const clampPercent = (v) => {
+        const n = Number(v);
+        if (!isFinite(n)) return 0;
+        const rounded = Math.round(n);
+        return Math.max(0, Math.min(100, rounded));
+    };
+
+    const homePercent = clampPercent(home_prob);
+    const drawPercent = clampPercent(draw_prob);
+    const awayPercent = clampPercent(away_prob);
 
     const homeFormData = parseFormData(home_form);
     const awayFormData = parseFormData(away_form);

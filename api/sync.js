@@ -2,61 +2,35 @@
 import { db } from '../lib/db.js';
 
 const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
-const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
 const ODDS_API_HOST = 'api.the-odds-api.com';
-const API_FOOTBALL_HOST = 'v3.football.api-sports.io';
 const SPORT = 'soccer_fifa_world_cup';
 
-// Helper to find team ID from API-Football
-const getTeamId = async (teamName) => {
-    const url = `https://${API_FOOTBALL_HOST}/teams?name=${encodeURIComponent(teamName)}`;
-    const response = await fetch(url, {
-        headers: { 'x-apisports-key': API_FOOTBALL_KEY }
-    });
-    if (!response.ok) {
-        console.error(`API-Football team search failed for ${teamName}:`, await response.text());
-        return null;
+// Generate a mock form array of 3 recent matches for a team
+const generateMockForm = (teamName, strengthPercent) => {
+    const entries = [];
+    // choose weights based on strength
+    let weights;
+    if (strengthPercent >= 60) weights = { W: 0.65, D: 0.25, L: 0.1 };
+    else if (strengthPercent > 50) weights = { W: 0.55, D: 0.3, L: 0.15 };
+    else if (strengthPercent > 40) weights = { W: 0.35, D: 0.3, L: 0.35 };
+    else weights = { W: 0.15, D: 0.25, L: 0.6 };
+
+    const pickOutcome = () => {
+        const r = Math.random();
+        if (r < weights.W) return 'W';
+        if (r < weights.W + weights.D) return 'D';
+        return 'L';
+    };
+
+    for (let i = 0; i < 3; i++) {
+        entries.push({
+            logo: `https://via.placeholder.com/32?text=${encodeURIComponent((teamName || 'T').charAt(0))}`,
+            outcome: pickOutcome()
+        });
     }
-    const data = await response.json();
-    // Assuming the first result is the correct one
-    return data.response[0]?.team.id;
+
+    return entries;
 };
-
-// Helper to get team form
-const getTeamForm = async (teamId) => {
-    if (!teamId) return [];
-    const url = `https://${API_FOOTBALL_HOST}/fixtures?team=${teamId}&last=3`;
-    const response = await fetch(url, {
-        headers: { 'x-apisports-key': API_FOOTBALL_KEY }
-    });
-    if (!response.ok) {
-        console.error(`API-Football fixtures fetch failed for team ${teamId}:`, await response.text());
-        return [];
-    }
-    const data = await response.json();
-
-    return data.response.map(fixture => {
-        const teams = fixture.teams;
-        const goals = fixture.goals;
-        const isHomeTeam = teams.home.id === teamId;
-        const opponent = isHomeTeam ? teams.away : teams.home;
-
-        let outcome = 'D';
-        if (isHomeTeam) {
-            if (goals.home > goals.away) outcome = 'W';
-            if (goals.home < goals.away) outcome = 'L';
-        } else { // is away team
-            if (goals.away > goals.home) outcome = 'W';
-            if (goals.away < goals.home) outcome = 'L';
-        }
-
-        return {
-            logo: opponent.logo,
-            outcome: outcome
-        };
-    });
-};
-
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -64,8 +38,8 @@ export default async function handler(req, res) {
     }
 
     try {
-        if (!THE_ODDS_API_KEY || !API_FOOTBALL_KEY) {
-            throw new Error("API key(s) are missing.");
+        if (!THE_ODDS_API_KEY) {
+            throw new Error("The Odds API key is missing.");
         }
 
         // 1. Fetch upcoming matches from The Odds API
@@ -89,33 +63,83 @@ export default async function handler(req, res) {
         const predictions = [];
 
         for (const match of upcomingMatches) {
-            // 2. Calculate true probabilities
-            const bookmaker = match.bookmakers[0];
-            const h2hMarket = bookmaker.markets.find(m => m.key === 'h2h');
-            const outcomes = h2hMarket.outcomes;
+            // 2. Extract odds from the first bookmaker with an h2h market
+            const bookmaker = match.bookmakers.find(b => b.markets?.some(m => m.key === 'h2h'));
+            const h2hMarket = bookmaker?.markets.find(m => m.key === 'h2h');
+            const outcomes = h2hMarket?.outcomes || [];
 
-            const homeOdds = outcomes.find(o => o.name === match.home_team)?.price || 3.0;
-            const awayOdds = outcomes.find(o => o.name === match.away_team)?.price || 3.0;
-            const drawOdds = outcomes.find(o => o.name === 'Draw')?.price || 3.0;
+            const homeOdds = Number(outcomes.find(o => o.name === match.home_team)?.price) || 3.0;
+            const awayOdds = Number(outcomes.find(o => o.name === match.away_team)?.price) || 3.0;
+            const drawOdds = Number(outcomes.find(o => o.name === 'Draw')?.price) || 3.0;
 
-            const rawHome = 1 / homeOdds;
-            const rawAway = 1 / awayOdds;
-            const rawDraw = 1 / drawOdds;
-            const totalMargin = rawHome + rawAway + rawDraw;
+            let rawHome = 1 / homeOdds;
+            let rawAway = 1 / awayOdds;
+            let rawDraw = 1 / drawOdds;
 
-            const home_prob = (rawHome / totalMargin);
-            const away_prob = (rawAway / totalMargin);
-            const draw_prob = (rawDraw / totalMargin);
-            
-            // 3. Fetch Team Form (API-Football)
+            if (!isFinite(rawHome) || !isFinite(rawAway) || !isFinite(rawDraw)) {
+                rawHome = rawAway = rawDraw = 1 / 3;
+            }
+
+            const sumRaw = rawHome + rawAway + rawDraw;
+            let floatHome = rawHome / sumRaw;
+            let floatAway = rawAway / sumRaw;
+            let floatDraw = rawDraw / sumRaw;
+
+            // Convert to integer percentages (0-100) and ensure they sum to 100 and none are zero
+            const floats = [floatHome * 100, floatAway * 100, floatDraw * 100];
+            let rounded = floats.map(f => Math.round(f));
+            let diff = 100 - rounded.reduce((a, b) => a + b, 0);
+
+            // If rounding caused difference, adjust using fractional parts
+            if (diff !== 0) {
+                const fracs = floats.map((f, i) => ({ idx: i, frac: f - Math.floor(f) }));
+                fracs.sort((a, b) => b.frac - a.frac);
+                let i = 0;
+                while (diff > 0) {
+                    rounded[fracs[i % fracs.length].idx] += 1;
+                    diff -= 1;
+                    i++;
+                }
+                while (diff < 0) {
+                    // remove from the largest rounded value that's >1
+                    const maxIdx = rounded.reduce((acc, val, idx) => (val > rounded[acc] ? idx : acc), 0);
+                    if (rounded[maxIdx] > 1) {
+                        rounded[maxIdx] -= 1;
+                        diff += 1;
+                    } else break;
+                }
+            }
+
+            // Ensure none are zero; if any zero, set to 1 and reduce the largest accordingly
+            for (let i = 0; i < rounded.length; i++) {
+                if (rounded[i] === 0) {
+                    // find index of largest value
+                    const largest = rounded.reduce((acc, val, idx) => (val > rounded[acc] ? idx : acc), 0);
+                    if (rounded[largest] > 1) {
+                        rounded[largest] -= 1;
+                        rounded[i] = 1;
+                    } else {
+                        rounded[i] = 1;
+                    }
+                }
+            }
+
+            // Final safety: if sum !== 100 adjust largest
+            const finalSum = rounded.reduce((a, b) => a + b, 0);
+            if (finalSum !== 100) {
+                const diff2 = 100 - finalSum;
+                const largest = rounded.reduce((acc, val, idx) => (val > rounded[acc] ? idx : acc), 0);
+                rounded[largest] += diff2;
+            }
+
+            const [home_prob, away_prob, draw_prob] = rounded;
+
+            // 3. Generate Mock Forms for teams
             const homeTeamName = match.home_team;
             const awayTeamName = match.away_team;
-            
-            const homeTeamId = await getTeamId(homeTeamName);
-            const awayTeamId = await getTeamId(awayTeamName);
 
-            const home_form = await getTeamForm(homeTeamId);
-            const away_form = await getTeamForm(awayTeamId);
+            const home_form = generateMockForm(homeTeamName, home_prob);
+            const away_form = generateMockForm(awayTeamName, away_prob);
 
             predictions.push({
                 match_title: `${homeTeamName} vs ${awayTeamName}`,
