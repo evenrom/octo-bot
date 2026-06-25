@@ -4,6 +4,7 @@ const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 const ODDS_API_HOST = 'api.the-odds-api.com';
 const SPORT = 'soccer_fifa_world_cup';
 
+// מילון קיצורי המדינות הרשמי והמורחב - מונע התנגשויות ותומך בכולן
 const commonNameToCode = {
     'Brazil': 'BRA', 'Argentina': 'ARG', 'Morocco': 'MAR', 'Haiti': 'HTI',
     'France': 'FRA', 'Germany': 'GER', 'Netherlands': 'NED', 'Portugal': 'POR',
@@ -15,7 +16,22 @@ const commonNameToCode = {
     'Ecuador': 'ECU', 'Peru': 'PER', 'Uruguay': 'URU', 'Colombia': 'COL',
     'Senegal': 'SEN', 'Tunisia': 'TUN', 'Egypt': 'EGY', 'Ghana': 'GHA',
     'Nigeria': 'NGA', 'Cameroon': 'CMR', 'Serbia': 'SRB', 'Qatar': 'QAT',
-    'Bosnia & Herzegovina': 'BIH', 'Bosnia': 'BIH', 'Czech Republic': 'CZE', 'South Africa': 'RSA'
+    'Bosnia & Herzegovina': 'BIH', 'Bosnia': 'BIH', 'Czech Republic': 'CZE', 'South Africa': 'RSA',
+    // תוספות קריטיות למניעת באגים והתנגשויות:
+    'Austria': 'AUT', // מונע התנגשות עם אוסטרליה!
+    'Jordan': 'JOR',
+    'Algeria': 'ALG',
+    'Iraq': 'IRQ',
+    'New Zealand': 'NZL',
+    'Cape Verde': 'CPV',
+    'Ivory Coast': 'CIV',
+    'Curaçao': 'CUW', 'Curacao': 'CUW',
+    'Turkey': 'TUR',
+    'Scotland': 'SCO',
+    'Paraguay': 'PAR',
+    'DR Congo': 'COD',
+    'Panama': 'PAN',
+    'Uzbekistan': 'UZB'
 };
 
 const toThreeLetter = (name) => {
