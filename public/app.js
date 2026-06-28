@@ -286,7 +286,8 @@ function createPredictionCard(prediction) {
         draw_prob,
         away_prob,
         home_form,
-        away_form
+        away_form,
+        sportsmole_prediction
     } = prediction;
 
     const clampPercent = (v) => {
@@ -329,6 +330,12 @@ function createPredictionCard(prediction) {
                 <div class="bg-gray-500 h-2" style="width: ${drawPercent}%"></div>
                 <div class="bg-red-500 h-2" style="width: ${awayPercent}%"></div>
             </div>
+            ${sportsmole_prediction && sportsmole_prediction !== 'No preview found' ? `
+                <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #4caf50; font-size: 0.85rem; text-align: center; color: #e0e0e0;">
+                    <span style="color: #4caf50; font-weight: bold; display: block; margin-bottom: 2px; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">Sports Mole Expert Pick</span>
+                    ${sportsmole_prediction}
+                </div>
+            ` : ''}
         </div>
 
         <div class="mt-auto grid grid-cols-2 gap-2">
