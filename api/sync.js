@@ -94,15 +94,25 @@ export default async function handler(req, res) {
     try {
         if (!THE_ODDS_API_KEY) throw new Error("API key missing.");
 
-        // 1. הקלטת משחקים אוטומטית מ-3 הימים האחרונים לתוך Results
+        // 1. הקלטת משחקים אוטומטית מ-3 הימים האחרונים לתוך Results עם שימור תחזיות
         const recentMatches = await fetchAllowedHistoricalMatches();
         for (const match of recentMatches) {
             const scores = extractScores(match);
             if (scores) {
                 const matchId = `${match.home_team}_vs_${match.away_team}`;
+                
+                // שליפת התחזית הקיימת בטבלת Predictions לפני שהיא נמחקת
+                const predCheck = await db.execute({
+                    sql: `SELECT sportsmole_prediction FROM Predictions WHERE match_title = ? OR match_title = ?`,
+                    args: [`${match.home_team} vs ${match.away_team}`, `${match.away_team} vs ${match.home_team}`]
+                });
+                const existingPred = predCheck.rows[0]?.sportsmole_prediction || null;
+
+                // הכנסה או עדכון תוך שימוש ב-COALESCE לשמירה על נתוני עבר קיימים
                 await db.execute({
-                    sql: `INSERT OR REPLACE INTO Results (match_id, home_score, away_score, accuracy_points) VALUES (?, ?, ?, 1)`,
-                    args: [matchId, scores.homeScore, scores.awayScore]
+                    sql: `INSERT OR REPLACE INTO Results (match_id, home_score, away_score, accuracy_points, sportsmole_prediction) 
+                          VALUES (?, ?, ?, 1, COALESCE(?, (SELECT sportsmole_prediction FROM Results WHERE match_id = ?)))`,
+                    args: [matchId, scores.homeScore, scores.awayScore, existingPred, matchId]
                 });
             }
         }

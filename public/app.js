@@ -166,6 +166,7 @@ window.setMascotState = function(state, revertDelayMs = null) {
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.setMascotState('waving');
+    fetchGlobalStats();
     fetchData();
     setupEventListeners();
 });
@@ -180,6 +181,45 @@ function setupEventListeners() {
             switchToNextAutoState(); // כל לחיצה מעבירה לאנימציה הבאה במאגר האוטומטי
         });
     }
+}
+
+async function fetchGlobalStats() {
+    if (!accuracyScoreEl) return;
+
+    try {
+        const response = await fetch('/api/global-stats');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        renderGlobalStats(data);
+    } catch (error) {
+        console.error('Failed to fetch global stats:', error);
+        renderGlobalStats({ spareRate: '--', strikeRate: '--' });
+    }
+}
+
+function renderGlobalStats(data = {}) {
+    if (!accuracyScoreEl) return;
+
+    const spareRate = Number.isFinite(Number(data?.spareRate)) ? Number(data.spareRate) : '--';
+    const strikeRate = Number.isFinite(Number(data?.strikeRate)) ? Number(data.strikeRate) : '--';
+
+    accuracyScoreEl.innerHTML = `
+        <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+            <div class="flex flex-col items-start">
+                <span class="text-[10px] uppercase tracking-[0.25em] text-[#dae2fd]/60">Spare</span>
+                <span class="text-sm font-jetbrains-mono font-semibold text-[#39ff14]">${spareRate}%</span>
+            </div>
+            <div class="h-7 w-px bg-white/10"></div>
+            <div class="flex flex-col items-start">
+                <span class="text-[10px] uppercase tracking-[0.25em] text-[#dae2fd]/60">Strike</span>
+                <span class="text-sm font-jetbrains-mono font-semibold text-[#39ff14]">${strikeRate}%</span>
+            </div>
+        </div>
+    `;
 }
 
 // Fetch initial data
@@ -211,10 +251,7 @@ async function fetchData() {
 function renderData(data) {
     const { predictions, algorithmState, accuracyScore, totalResolvedMatches } = data;
 
-    // 1. Update Accuracy Score
-    accuracyScoreEl.textContent = `${accuracyScore}%`;
-
-    // 2. Update Algorithm Status
+    // 1. Update Algorithm Status
     if (algorithmState) {
         const updatedDate = formatDate(algorithmState.updated_at);
         algorithmStatusEl.innerHTML = `Algorithm weights updated: ${updatedDate} | Odds: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.odds_weight}</span> | Momentum: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.momentum_weight}</span>`;
@@ -369,6 +406,7 @@ async function handleSync() {
             throw new Error(err.error || 'Failed to sync fixtures.');
         }
         await fetchData();
+        await fetchGlobalStats();
         window.setMascotState('correct', 4000); // Call on success
     } catch (error) {
         showError(`Sync Error: ${error.message}`);
