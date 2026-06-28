@@ -3,9 +3,9 @@ import { db } from '../lib/db.js';
 export default async function handler(req, res) {
   try {
     const predictionsResult = await db.execute(`
-      SELECT id, match_title, home_prob, draw_prob, away_prob, home_form, away_form, kickoff_time
+      SELECT *
       FROM Predictions
-      ORDER BY kickoff_time
+      ORDER BY kickoff_time ASC
     `);
 
     const stateResult = await db.execute(`

@@ -110,7 +110,7 @@ export default async function handler(req, res) {
         // 2. משיכת 6 המשחקים הבאים
         const oddsResponse = await fetch(`https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${THE_ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=decimal`);
         const allMatches = await oddsResponse.json();
-        const upcomingMatches = allMatches.slice(0, 6);
+        const upcomingMatches = allMatches.slice(0, 4); // עודכן ל-4 משחקים בלבד לבקשתך
 
         // 3. שליפת כל היסטוריית הטורניר שנצברה מקומית ב-DB
         const localHistory = await db.execute("SELECT match_id, home_score, away_score FROM Results");
