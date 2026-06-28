@@ -7,8 +7,8 @@ export default async function handler(req, res) {
     const skSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " Sportskeeda preview prediction")}`;
 
     const results = {
-        sportsMole: { searchUrl: "", targetUrl: "", status: "pending", extracted: "" },
-        sportskeeda: { searchUrl: "", targetUrl: "", status: "pending", extracted: "" }
+        sportsMole: { targetUrl: "", status: "pending", extracted: "" },
+        sportskeeda: { targetUrl: "", status: "pending", extracted: "" }
     };
 
     // פונקציית עזר לחילוץ הקישור האמיתי מתוך תוצאות החיפוש של DuckDuckGo
@@ -23,7 +23,6 @@ export default async function handler(req, res) {
             }
             return foundUrl;
         }
-        // Fallback למקרה שהקישור מקודד בצורה שונה
         const encodedRegex = new RegExp(`uddg=([^&\\s\\)]*${domainKey}[^&\\s\\)]*)`, 'i');
         const encodedMatch = searchText.match(encodedRegex);
         if (encodedMatch && encodedMatch[1]) {
@@ -66,8 +65,10 @@ export default async function handler(req, res) {
                 const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
                 if (pageResponse.ok) {
                     const pageText = await pageResponse.text();
-                    // Sportskeeda משתמשים בפורמט "Prediction:"
-                    const matchPrediction = pageText.match(/Prediction:[^\n]+/i);
+                    
+                    // REGEX חכם: תופס Prediction גם אם יש סביבו כוכביות הדגשה (**Prediction**:) או רווחים
+                    const matchPrediction = pageText.match(/(?:\*\*|__)?Prediction(?:\*\*|__)?\s*:\s*[^\n]+/i);
+                    
                     results.sportskeeda.status = "Success";
                     results.sportskeeda.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found on page";
                 } else {
