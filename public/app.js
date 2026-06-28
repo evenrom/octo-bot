@@ -208,7 +208,7 @@ function renderGlobalStats(data = {}) {
     const strikeRate = Number.isFinite(Number(data?.strikeRate)) ? Number(data.strikeRate) : '--';
 
     accuracyScoreEl.innerHTML = `
-        <div class="flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+        <div class="flex items-center justify-between gap-3 w-full rounded-full border border-white/10 bg-black/20 px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
             <div class="flex flex-col items-start">
                 <span class="text-[10px] uppercase tracking-[0.25em] text-[#dae2fd]/60">Spare</span>
                 <span class="text-sm font-jetbrains-mono font-semibold text-[#39ff14]">${spareRate}%</span>
@@ -368,9 +368,9 @@ function createPredictionCard(prediction) {
                 <div class="bg-red-500 h-2" style="width: ${awayPercent}%"></div>
             </div>
             ${sportsmole_prediction && sportsmole_prediction !== 'No preview found' ? `
-                <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; border-left: 3px solid #4caf50; font-size: 0.85rem; text-align: center; color: #e0e0e0;">
-                    <span style="color: #4caf50; font-weight: bold; display: block; margin-bottom: 2px; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">Sports Mole Expert Pick</span>
-                    ${sportsmole_prediction}
+                <div class="mt-3 bg-black/20 rounded p-3 border border-white/5 text-sm text-[#dae2fd]">
+                    <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">Sports Mole Expert Pick</div>
+                    <div class="text-sm text-[#dae2fd]">${sportsmole_prediction}</div>
                 </div>
             ` : ''}
         </div>
@@ -413,7 +413,7 @@ async function handleSync() {
         window.setMascotState('failed', 4000); // שורה 8 - נכשל (יבכה ל-4 שניות ויחזור)
     } finally {
         isSyncing = false;
-        updateButtonState(btnSync, false, 'FETCH PREDICTIONS');
+        updateButtonState(btnSync, false, 'SYNC');
     }
 }
 

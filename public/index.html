@@ -39,16 +39,15 @@
             <h1 class="text-2xl font-space-grotesk font-bold tracking-tight text-blue-400">Octo-Bot</h1>
 
             <div class="flex items-center gap-6">
-                <!-- Global Stats -->
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] uppercase text-[#dae2fd]/70 font-semibold tracking-[0.28em] font-sora">Global Accuracy</span>
-                    <div id="accuracy-score" class="mt-1"></div>
+                <!-- Global Stats (expanded to occupy available space) -->
+                <div class="flex-1 flex items-center justify-end">
+                    <div id="accuracy-score" class="mt-1 w-full max-w-[360px]"></div>
                 </div>
 
-                <!-- Manual Triggers -->
-                <div class="flex gap-2">
-                    <button id="btn-sync" class="bg-[#39ff14] text-black active:scale-95 duration-100 px-4 py-2 rounded font-semibold text-sm transition-all flex items-center justify-center gap-2 min-w-[140px] font-sora hover:bg-[#39ff14]/90">
-                        <span>FETCH PREDICTIONS</span>
+                <!-- Manual Triggers (compact) -->
+                <div class="flex gap-2 flex-none">
+                    <button id="btn-sync" class="bg-[#39ff14] text-black active:scale-95 duration-100 px-2 py-1 rounded font-semibold text-xs transition-all flex items-center justify-center gap-2 min-w-[88px] font-sora hover:bg-[#39ff14]/90">
+                        <span>SYNC</span>
                     </button>
                 </div>
             </div>
