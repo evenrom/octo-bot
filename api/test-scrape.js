@@ -1,54 +1,85 @@
 export default async function handler(req, res) {
-    // שני הקישורים הספציפיים שרצית לבדוק
-    const urlSportsMole = "https://www.sportsmole.co.uk/football/canada/world-cup-2026/preview/south-africa-vs-canada-prediction-team-news-lineups_600163.html";
-    const urlSI = "https://www.si.com/soccer/south-africa-vs-canada-world-cup-preview-predictions-lineups-6-28-26";
+    // הגדרת המשחק הדינמי לבדיקה
+    const matchQuery = "Brazil vs Japan World Cup 2026";
+    
+    // יצירת שאילתות חיפוש עבור מנוע החיפוש DuckDuckGo
+    const smSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " Sports Mole preview prediction")}`;
+    const skSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " Sportskeeda preview prediction")}`;
 
     const results = {
-        sportsMole: { status: "pending", rawText: "", extracted: "" },
-        sportsIllustrated: { status: "pending", rawText: "", extracted: "" }
+        sportsMole: { searchUrl: "", targetUrl: "", status: "pending", extracted: "" },
+        sportskeeda: { searchUrl: "", targetUrl: "", status: "pending", extracted: "" }
+    };
+
+    // פונקציית עזר לחילוץ הקישור האמיתי מתוך תוצאות החיפוש של DuckDuckGo
+    const extractTargetUrl = (searchText, domainKey) => {
+        const regex = new RegExp(`https?://[^\\s\\)]*${domainKey}[^\\s\\)]*`, 'i');
+        const match = searchText.match(regex);
+        if (match) {
+            let foundUrl = match[0];
+            if (foundUrl.includes('uddg=')) {
+                const cleanUrl = foundUrl.split('uddg=')[1]?.split('&')[0];
+                if (cleanUrl) return decodeURIComponent(cleanUrl);
+            }
+            return foundUrl;
+        }
+        // Fallback למקרה שהקישור מקודד בצורה שונה
+        const encodedRegex = new RegExp(`uddg=([^&\\s\\)]*${domainKey}[^&\\s\\)]*)`, 'i');
+        const encodedMatch = searchText.match(encodedRegex);
+        if (encodedMatch && encodedMatch[1]) {
+            return decodeURIComponent(encodedMatch[1]);
+        }
+        return null;
     };
 
     try {
-        // 1. בדיקת שליפה מ-Sports Mole (דרך הפרוקסי שמנקה חסימות)
-        const smResponse = await fetch(`https://r.jina.ai/${urlSportsMole}`);
-        if (smResponse.ok) {
-            const text = await smResponse.text();
-            results.sportsMole.status = "Success";
-            
-            // Sports Mole בדרך כלל כותבים: "We say: South Africa 1-2 Canada"
-            const match = text.match(/We say:[^\n]+/i);
-            if (match) {
-                results.sportsMole.extracted = match[0].trim();
+        // --- חילוץ וגירוד עבור Sports Mole ---
+        const smSearchResponse = await fetch(`https://r.jina.ai/${smSearchUrl}`);
+        if (smSearchResponse.ok) {
+            const searchText = await smSearchResponse.text();
+            const targetUrl = extractTargetUrl(searchText, "sportsmole.co.uk");
+            results.sportsMole.targetUrl = targetUrl;
+
+            if (targetUrl) {
+                const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
+                if (pageResponse.ok) {
+                    const pageText = await pageResponse.text();
+                    const matchPrediction = pageText.match(/We say:[^\n]+/i);
+                    results.sportsMole.status = "Success";
+                    results.sportsMole.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found on page";
+                } else {
+                    results.sportsMole.status = `Failed fetching target page: ${pageResponse.status}`;
+                }
             } else {
-                // אם לא מצאנו את המשפט המדויק, ניקח חתיכת טקסט קטנה מהסוף לבדיקה
-                results.sportsMole.extracted = "Prediction sentence not found, parsing text directly...";
-                results.sportsMole.rawText = text.slice(-2000); // 2000 תווים אחרונים שמתארים את סוף הכתבה
+                results.sportsMole.status = "Could not find Sports Mole link in search results";
             }
-        } else {
-            results.sportsMole.status = `Failed with status ${smResponse.status}`;
         }
 
-        // 2. בדיקת שליפה מ-Sports Illustrated
-        const siResponse = await fetch(`https://r.jina.ai/${urlSI}`);
-        if (siResponse.ok) {
-            const text = await siResponse.text();
-            results.sportsIllustrated.status = "Success";
-            
-            // SI בדרך כלל כותבים "Prediction:" או משפט דומה בסוף
-            const match = text.match(/Prediction:[^\n]+/i);
-            if (match) {
-                results.sportsIllustrated.extracted = match[0].trim();
+        // --- חילוץ וגירוד עבור Sportskeeda ---
+        const skSearchResponse = await fetch(`https://r.jina.ai/${skSearchUrl}`);
+        if (skSearchResponse.ok) {
+            const searchText = await skSearchResponse.text();
+            const targetUrl = extractTargetUrl(searchText, "sportskeeda.com");
+            results.sportskeeda.targetUrl = targetUrl;
+
+            if (targetUrl) {
+                const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
+                if (pageResponse.ok) {
+                    const pageText = await pageResponse.text();
+                    // Sportskeeda משתמשים בפורמט "Prediction:"
+                    const matchPrediction = pageText.match(/Prediction:[^\n]+/i);
+                    results.sportskeeda.status = "Success";
+                    results.sportskeeda.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found on page";
+                } else {
+                    results.sportskeeda.status = `Failed fetching target page: ${pageResponse.status}`;
+                }
             } else {
-                results.sportsIllustrated.extracted = "Prediction sentence not found, parsing text directly...";
-                results.sportsIllustrated.rawText = text.slice(-2000);
+                results.sportskeeda.status = "Could not find Sportskeeda link in search results";
             }
-        } else {
-            results.sportsIllustrated.status = `Failed with status ${siResponse.status}`;
         }
 
-        // החזרת התוצאות הגולמיות ישירות למסך הדפדפן
         res.status(200).json({
-            message: "Scraping test completed",
+            message: `Dynamic test for ${matchQuery} completed`,
             results: results
         });
 
