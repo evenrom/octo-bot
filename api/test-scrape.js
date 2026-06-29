@@ -1,17 +1,15 @@
 export default async function handler(req, res) {
-    // הגדרת המשחק הדינמי לבדיקה
     const matchQuery = "Brazil vs Japan World Cup 2026";
     
-    // יצירת שאילתות חיפוש עבור מנוע החיפוש DuckDuckGo
-    const smSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " Sports Mole preview prediction")}`;
-    const skSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " Sportskeeda preview prediction")}`;
+    // שאילתות חיפוש ל-DuckDuckGo
+    const fpSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " footballpredictions.net preview")}`;
+    const fstSearchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(matchQuery + " freesupertips match preview prediction")}`;
 
     const results = {
-        sportsMole: { targetUrl: "", status: "pending", extracted: "" },
-        sportskeeda: { targetUrl: "", status: "pending", extracted: "" }
+        footballPredictions: { targetUrl: "", status: "pending", extracted: "" },
+        freeSuperTips: { targetUrl: "", status: "pending", extracted: "" }
     };
 
-    // פונקציית עזר לחילוץ הקישור האמיתי מתוך תוצאות החיפוש של DuckDuckGo
     const extractTargetUrl = (searchText, domainKey) => {
         const regex = new RegExp(`https?://[^\\s\\)]*${domainKey}[^\\s\\)]*`, 'i');
         const match = searchText.match(regex);
@@ -23,64 +21,58 @@ export default async function handler(req, res) {
             }
             return foundUrl;
         }
-        const encodedRegex = new RegExp(`uddg=([^&\\s\\)]*${domainKey}[^&\\s\\)]*)`, 'i');
-        const encodedMatch = searchText.match(encodedRegex);
-        if (encodedMatch && encodedMatch[1]) {
-            return decodeURIComponent(encodedMatch[1]);
-        }
         return null;
     };
 
     try {
-        // --- חילוץ וגירוד עבור Sports Mole ---
-        const smSearchResponse = await fetch(`https://r.jina.ai/${smSearchUrl}`);
-        if (smSearchResponse.ok) {
-            const searchText = await smSearchResponse.text();
-            const targetUrl = extractTargetUrl(searchText, "sportsmole.co.uk");
-            results.sportsMole.targetUrl = targetUrl;
+        // --- 1. בדיקה עבור FootballPredictions.net ---
+        const fpSearchResponse = await fetch(`https://r.jina.ai/${fpSearchUrl}`);
+        if (fpSearchResponse.ok) {
+            const searchText = await fpSearchResponse.text();
+            const targetUrl = extractTargetUrl(searchText, "footballpredictions.net");
+            results.footballPredictions.targetUrl = targetUrl;
 
             if (targetUrl) {
                 const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
                 if (pageResponse.ok) {
                     const pageText = await pageResponse.text();
-                    const matchPrediction = pageText.match(/We say:[^\n]+/i);
-                    results.sportsMole.status = "Success";
-                    results.sportsMole.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found on page";
+                    // מחפש ביטויים כמו "Our prediction" או "prediction is a"
+                    const matchPrediction = pageText.match(/(?:Our prediction|prediction is a)[^\n.]+/i);
+                    results.footballPredictions.status = "Success";
+                    results.footballPredictions.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found";
                 } else {
-                    results.sportsMole.status = `Failed fetching target page: ${pageResponse.status}`;
+                    results.footballPredictions.status = `Failed page fetch: ${pageResponse.status}`;
                 }
             } else {
-                results.sportsMole.status = "Could not find Sports Mole link in search results";
+                results.footballPredictions.status = "Link not found in search";
             }
         }
 
-        // --- חילוץ וגירוד עבור Sportskeeda ---
-        const skSearchResponse = await fetch(`https://r.jina.ai/${skSearchUrl}`);
-        if (skSearchResponse.ok) {
-            const searchText = await skSearchResponse.text();
-            const targetUrl = extractTargetUrl(searchText, "sportskeeda.com");
-            results.sportskeeda.targetUrl = targetUrl;
+        // --- 2. בדיקה עבור Free Super Tips ---
+        const fstSearchResponse = await fetch(`https://r.jina.ai/${fstSearchUrl}`);
+        if (fstSearchResponse.ok) {
+            const searchText = await fstSearchResponse.text();
+            const targetUrl = extractTargetUrl(searchText, "freesupertips.com");
+            results.freeSuperTips.targetUrl = targetUrl;
 
             if (targetUrl) {
                 const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
                 if (pageResponse.ok) {
                     const pageText = await pageResponse.text();
-                    
-                    // REGEX חכם: תופס Prediction גם אם יש סביבו כוכביות הדגשה (**Prediction**:) או רווחים
-                    const matchPrediction = pageText.match(/(?:\*\*|__)?Prediction(?:\*\*|__)?\s*:\s*[^\n]+/i);
-                    
-                    results.sportskeeda.status = "Success";
-                    results.sportskeeda.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found on page";
+                    // מחפש כותרות או פסקאות של "Correct score prediction"
+                    const matchPrediction = pageText.match(/(?:Correct score prediction|We predict)[^\n]+/i);
+                    results.freeSuperTips.status = "Success";
+                    results.freeSuperTips.extracted = matchPrediction ? matchPrediction[0].trim() : "Prediction phrase not found";
                 } else {
-                    results.sportskeeda.status = `Failed fetching target page: ${pageResponse.status}`;
+                    results.freeSuperTips.status = `Failed page fetch: ${pageResponse.status}`;
                 }
             } else {
-                results.sportskeeda.status = "Could not find Sportskeeda link in search results";
+                results.freeSuperTips.status = "Link not found in search";
             }
         }
 
         res.status(200).json({
-            message: `Dynamic test for ${matchQuery} completed`,
+            message: `New sources test for ${matchQuery} completed`,
             results: results
         });
 
