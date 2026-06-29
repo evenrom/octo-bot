@@ -5,6 +5,23 @@ function formatDate(dateString) {
     return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const codeToFullName = {
+    'BRA': 'Brazil', 'ARG': 'Argentina', 'MAR': 'Morocco', 'HTI': 'Haiti',
+    'FRA': 'France', 'GER': 'Germany', 'NED': 'Netherlands', 'POR': 'Portugal',
+    'ESP': 'Spain', 'ENG': 'England', 'USA': 'United States', 'BEL': 'Belgium',
+    'CRO': 'Croatia', 'DEN': 'Denmark', 'SUI': 'Switzerland', 'SWE': 'Sweden',
+    'NOR': 'Norway', 'ITA': 'Italy', 'POL': 'Poland', 'MEX': 'Mexico',
+    'CAN': 'Canada', 'JPN': 'Japan', 'KOR': 'South Korea', 'AUS': 'Australia',
+    'KSA': 'Saudi Arabia', 'IRN': 'Iran', 'ECU': 'Ecuador', 'PER': 'Peru',
+    'URU': 'Uruguay', 'COL': 'Colombia', 'SEN': 'Senegal', 'TUN': 'Tunisia',
+    'EGY': 'Egypt', 'GHA': 'Ghana', 'NGA': 'Nigeria', 'CMR': 'Cameroon',
+    'SRB': 'Serbia', 'QAT': 'Qatar', 'BIH': 'Bosnia & Herzegovina', 'CZE': 'Czech Republic',
+    'RSA': 'South Africa', 'AUT': 'Austria', 'JOR': 'Jordan', 'ALG': 'Algeria',
+    'IRQ': 'Iraq', 'NZL': 'New Zealand', 'CPV': 'Cape Verde', 'CIV': 'Ivory Coast',
+    'CUW': 'Curaçao', 'TUR': 'Turkey', 'SCO': 'Scotland', 'PAR': 'Paraguay',
+    'COD': 'DR Congo', 'PAN': 'Panama', 'UZB': 'Uzbekistan'
+};
+
 // Elements
 const accuracyScoreEl = document.getElementById('accuracy-score');
 const dataGridEl = document.getElementById('data-grid');
@@ -297,6 +314,13 @@ function renderFormHtml(formArray) {
     const renderedItems = formArray.slice(0, 3).map(match => {
         const outcome = match?.outcome || '';
         const summaryText = match?.summary || '';
+        const parts = String(summaryText).trim().split(/\s+/);
+        const homeCode = parts[0] || '';
+        const awayCode = parts[2] || '';
+        const homeFullName = codeToFullName[homeCode] || homeCode;
+        const awayFullName = codeToFullName[awayCode] || awayCode;
+        const titleText = homeFullName && awayFullName ? `${homeFullName} vs ${awayFullName}` : '';
+        const titleAttr = titleText ? ` title="${titleText.replace(/"/g, '&quot;')}"` : '';
 
         let outcomeClass = '';
         if (outcome === 'W') outcomeClass = 'form-win';
@@ -304,7 +328,7 @@ function renderFormHtml(formArray) {
         else if (outcome === 'L') outcomeClass = 'form-loss';
 
         return `
-            <div class="form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded">${summaryText}</div>
+            <div class="form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded"${titleAttr}>${summaryText}</div>
         `;
     }).join('');
 
