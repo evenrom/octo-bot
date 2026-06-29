@@ -113,3 +113,17 @@
     opacity: 1;
     transform: translateX(-50%) scale(1);
 }
+
+/* 1. מונע מכרטיס המשחק ותיבות ה-Form לחתוך את הטוליפ הצף */
+.match-card, 
+[class*="form"] {
+    overflow: visible !important;
+}
+
+/* 2. מבטיח שהטוליפ יצוף גבוה מעל הכל ויראה מעולה */
+.custom-tooltip-wrapper::after {
+    z-index: 9999 !important;
+}
+.custom-tooltip-wrapper::before {
+    z-index: 9999 !important;
+}
