@@ -319,8 +319,8 @@ function renderFormHtml(formArray) {
         const awayCode = parts[2] || '';
         const homeFullName = codeToFullName[homeCode] || homeCode;
         const awayFullName = codeToFullName[awayCode] || awayCode;
-        const titleText = homeFullName && awayFullName ? `${homeFullName} vs ${awayFullName}` : '';
-        const titleAttr = titleText ? ` title="${titleText.replace(/"/g, '&quot;')}"` : '';
+        const tooltipText = homeFullName && awayFullName ? `${homeFullName} vs ${awayFullName}` : '';
+        const tooltipAttr = tooltipText ? ` data-tooltip="${tooltipText.replace(/"/g, '&quot;')}"` : '';
 
         let outcomeClass = '';
         if (outcome === 'W') outcomeClass = 'form-win';
@@ -328,7 +328,7 @@ function renderFormHtml(formArray) {
         else if (outcome === 'L') outcomeClass = 'form-loss';
 
         return `
-            <div class="form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded"${titleAttr}>${summaryText}</div>
+            <div class="custom-tooltip-wrapper form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded"${tooltipAttr}>${summaryText}</div>
         `;
     }).join('');
 
@@ -483,3 +483,15 @@ function updateButtonState(btn, isLoading, text) {
         }
     }
 }
+
+// Global click handler for custom tooltips (mobile tap toggle + desktop hover fallback)
+document.addEventListener('click', (e) => {
+    const wrapper = e.target.closest('.custom-tooltip-wrapper');
+    if (!wrapper) {
+        document.querySelectorAll('.custom-tooltip-wrapper.active').forEach(el => el.classList.remove('active'));
+        return;
+    }
+    const wasActive = wrapper.classList.contains('active');
+    document.querySelectorAll('.custom-tooltip-wrapper.active').forEach(el => el.classList.remove('active'));
+    if (!wasActive) wrapper.classList.add('active');
+});

@@ -63,3 +63,53 @@
     border: 2px solid #ef4444;
     background-color: rgba(239, 68, 68, 0.08);
 }
+
+/* Custom tooltip: premium dark floating card */
+.custom-tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+.custom-tooltip-wrapper::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%) scale(0.95);
+    background: #0f141c;
+    color: #e0e0e0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.08);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.15s ease-in-out;
+    z-index: 999;
+}
+.custom-tooltip-wrapper::before {
+    content: '';
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #0f141c transparent transparent transparent;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.15s ease-in-out;
+    z-index: 999;
+}
+@media (min-width: 768px) {
+    .custom-tooltip-wrapper:hover::after, .custom-tooltip-wrapper:hover::before {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}
+.custom-tooltip-wrapper.active::after, .custom-tooltip-wrapper.active::before {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+}
