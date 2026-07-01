@@ -24,12 +24,9 @@ const commonNameToCode = {
 const toThreeLetter = (name) => {
     if (!name) return 'TBD';
     if (commonNameToCode[name]) return commonNameToCode[name];
-    const cleaned = name.replace(/[^A-Za-z ]/g, '').trim();
-    if (commonNameToCode[cleaned]) return commonNameToCode[cleaned];
-    return cleaned.slice(0, 3).toUpperCase();
+    return name.replace(/[^A-Za-z ]/g, '').trim().slice(0, 3).toUpperCase();
 };
 
-// פונקציית עזר לחילוץ הקישור מתוצאות החיפוש
 const extractTargetUrl = (searchText, domainKey) => {
     const regex = new RegExp(`https?://[^\\s\\)]*${domainKey}[^\\s\\)]*`, 'i');
     const match = searchText.match(regex);
@@ -44,18 +41,14 @@ const extractTargetUrl = (searchText, domainKey) => {
     return null;
 };
 
-// מנגנון פנימי לגירוד אוטומטי של התחזית מ-Sports Mole
 const scrapeSportsMolePrediction = async (homeTeam, awayTeam) => {
     try {
         const searchQuery = `${homeTeam} vs ${awayTeam} World Cup 2026 Sports Mole preview prediction`;
         const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
-        
         const searchResponse = await fetch(`https://r.jina.ai/${searchUrl}`);
         if (!searchResponse.ok) return null;
-        
         const searchText = await searchResponse.text();
         const targetUrl = extractTargetUrl(searchText, "sportsmole.co.uk");
-        
         if (targetUrl) {
             const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
             if (pageResponse.ok) {
@@ -64,28 +57,18 @@ const scrapeSportsMolePrediction = async (homeTeam, awayTeam) => {
                 return matchPrediction ? matchPrediction[0].trim() : null;
             }
         }
-    } catch (e) {
-        console.error(`Error scraping prediction for ${homeTeam} vs ${awayTeam}:`, e);
-    }
+    } catch (e) { console.error(e); }
     return null;
 };
 
-// משיכת תוצאות מ-3 הימים האחרונים (חוקי וחינמי)
 const fetchAllowedHistoricalMatches = async () => {
     const url = `https://${ODDS_API_HOST}/v4/sports/${SPORT}/scores/?apiKey=${THE_ODDS_API_KEY}&daysFrom=3`;
     try {
         const response = await fetch(url);
         if (!response.ok) return [];
         const data = await response.json();
-        return Array.isArray(data) ? data.filter(m => m.completed === true && Array.isArray(m.scores)) : [];
+        return Array.isArray(data) ? data.filter(m => m.completed === true) : [];
     } catch { return []; }
-};
-
-const extractScores = (match) => {
-    if (!match.scores || match.scores.length < 2) return null;
-    const home = match.scores.find(s => s.name === match.home_team);
-    const away = match.scores.find(s => s.name === match.away_team);
-    return home && away && home.score !== null && away.score !== null ? { homeScore: Number(home.score), awayScore: Number(away.score) } : null;
 };
 
 export default async function handler(req, res) {
@@ -94,45 +77,46 @@ export default async function handler(req, res) {
     try {
         if (!THE_ODDS_API_KEY) throw new Error("API key missing.");
 
-        // 1. הקלטת משחקים אוטומטית מ-3 הימים האחרונים לתוך Results עם שימור תחזיות
+        // 1. שמירת משחקי עבר לתוך Results בלי לדרוס נתוני ניבוי קיימים
         const recentMatches = await fetchAllowedHistoricalMatches();
         for (const match of recentMatches) {
-            const scores = extractScores(match);
-            if (scores) {
+            if (!match.scores || match.scores.length < 2) continue;
+            const home = match.scores.find(s => s.name === match.home_team);
+            const away = match.scores.find(s => s.name === match.away_team);
+            
+            if (home && away && home.score !== null && away.score !== null) {
                 const matchId = `${match.home_team}_vs_${match.away_team}`;
                 
-                // שליפת התחזית הקיימת בטבלת Predictions לפני שהיא נמחקת
                 const predCheck = await db.execute({
-                    sql: `SELECT sportsmole_prediction FROM Predictions WHERE match_title = ? OR match_title = ?`,
-                    args: [`${match.home_team} vs ${match.away_team}`, `${match.away_team} vs ${match.home_team}`]
+                    sql: `SELECT sportsmole_prediction, si_prediction FROM Predictions WHERE match_title = ?`,
+                    args: [`${match.home_team} vs ${match.away_team}`]
                 });
-                const existingPred = predCheck.rows[0]?.sportsmole_prediction || null;
+                const existingSm = predCheck.rows[0]?.sportsmole_prediction || null;
+                const existingSi = predCheck.rows[0]?.si_prediction || null;
 
-                // הכנסה או עדכון תוך שימוש ב-COALESCE לשמירה על נתוני עבר קיימים
                 await db.execute({
-                    sql: `INSERT OR REPLACE INTO Results (match_id, home_score, away_score, accuracy_points, sportsmole_prediction) 
-                          VALUES (?, ?, ?, 1, COALESCE(?, (SELECT sportsmole_prediction FROM Results WHERE match_id = ?)))`,
-                    args: [matchId, scores.homeScore, scores.awayScore, existingPred, matchId]
+                    sql: `INSERT OR REPLACE INTO Results (match_id, home_score, away_score, accuracy_points, sportsmole_prediction, si_prediction) 
+                          VALUES (?, ?, ?, 1, 
+                            COALESCE(?, (SELECT sportsmole_prediction FROM Results WHERE match_id = ?)), 
+                            COALESCE(?, (SELECT si_prediction FROM Results WHERE match_id = ?))
+                          )`,
+                    args: [matchId, Number(home.score), Number(away.score), existingSm, matchId, existingSi, matchId]
                 });
             }
         }
 
-        // 2. משיכת 6 המשחקים הבאים
+        // 2. משיכת 4 המשחקים הבאים
         const oddsResponse = await fetch(`https://${ODDS_API_HOST}/v4/sports/${SPORT}/odds/?apiKey=${THE_ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=decimal`);
         const allMatches = await oddsResponse.json();
-        const upcomingMatches = allMatches.slice(0, 4); // עודכן ל-4 משחקים בלבד לבקשתך
+        const upcomingMatches = allMatches.slice(0, 4);
 
-        // 3. שליפת כל היסטוריית הטורניר שנצברה מקומית ב-DB
         const localHistory = await db.execute("SELECT match_id, home_score, away_score FROM Results");
         const dbRows = localHistory.rows || [];
-
         const predictions = [];
 
-        // רצים על המשחקים ומחלצים נתונים כולל גירוד הכתבות
         for (const match of upcomingMatches) {
             const bookmaker = match.bookmakers?.find(b => b.markets?.some(m => m.key === 'h2h'));
-            const h2hMarket = bookmaker?.markets.find(m => m.key === 'h2h');
-            const outcomes = h2hMarket?.outcomes || [];
+            const outcomes = bookmaker?.markets.find(m => m.key === 'h2h')?.outcomes || [];
 
             const homeOdds = Number(outcomes.find(o => o.name === match.home_team)?.price) || 2.0;
             const awayOdds = Number(outcomes.find(o => o.name === match.away_team)?.price) || 2.0;
@@ -145,30 +129,35 @@ export default async function handler(req, res) {
 
             const buildForm = (teamName) => {
                 const teamCode = toThreeLetter(teamName);
-                const matches = [];
+                const list = [];
                 for (const row of dbRows) {
                     const parts = row.match_id.split('_vs_');
                     if (parts.length !== 2) continue;
                     const hCode = toThreeLetter(parts[0]);
                     const aCode = toThreeLetter(parts[1]);
-
                     if (hCode !== teamCode && aCode !== teamCode) continue;
 
-                    const hScore = Number(row.home_score);
-                    const aScore = Number(row.away_score);
-                    const summary = `${hCode} ${hScore}-${aScore} ${aCode}`;
-
+                    const hS = Number(row.home_score);
+                    const aS = Number(row.away_score);
+                    const summary = `${hCode} ${hS}-${aS} ${aCode}`;
                     if (hCode === teamCode) {
-                        matches.push({ summary, outcome: hScore > aScore ? 'W' : (hScore < aScore ? 'L' : 'D') });
+                        list.push({ summary, outcome: hS > aS ? 'W' : (hS < aS ? 'L' : 'D') });
                     } else {
-                        matches.push({ summary, outcome: aScore > hScore ? 'W' : (aScore < hScore ? 'L' : 'D') });
+                        list.push({ summary, outcome: aS > hS ? 'W' : (aS < hS ? 'L' : 'D') });
                     }
                 }
-                return matches.length > 0 ? matches.slice(-3) : [{ summary: 'No matches', outcome: '' }];
+                return list.length > 0 ? list.slice(-3) : [{ summary: 'No matches', outcome: '' }];
             };
 
-            // גירוד דינמי מ-Sports Mole למשחק הספציפי הנוכחי בלופ
+            // א) גירוד אוטומטי של Sports Mole
             const smPrediction = await scrapeSportsMolePrediction(match.home_team, match.away_team);
+
+            // ב) משיכת ההזנה הידנית שלך עבור Sports Illustrated מטבלת המעקף
+            const siCheck = await db.execute({
+                sql: `SELECT si_prediction FROM SI_Manual_Inputs WHERE match_title = ? OR match_title = ?`,
+                args: [`${match.home_team} vs ${match.away_team}`, `${match.away_team} vs ${match.home_team}`]
+            });
+            const siPrediction = siCheck.rows[0]?.si_prediction || "No input found";
 
             predictions.push({
                 match_title: `${match.home_team} vs ${match.away_team}`,
@@ -176,21 +165,22 @@ export default async function handler(req, res) {
                 kickoff_time: match.commence_time,
                 home_form: JSON.stringify(buildForm(match.home_team)),
                 away_form: JSON.stringify(buildForm(match.away_team)),
-                sportsmole_prediction: smPrediction || "No preview found"
+                sportsmole_prediction: smPrediction || "No preview found",
+                si_prediction: siPrediction
             });
         }
 
-        // 4. עדכון טבלת התחזיות בבסיס הנתונים
+        // 3. כתיבה מחדש של טבלת התחזיות הפעילות
         await db.execute('DELETE FROM Predictions');
         const insertStatements = predictions.map(p => ({
-            sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, kickoff_time, home_form, away_form, sportsmole_prediction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [p.match_title, p.home_prob, p.draw_prob, p.away_prob, p.kickoff_time, p.home_form, p.away_form, p.sportsmole_prediction]
+            sql: `INSERT INTO Predictions (match_title, home_prob, draw_prob, away_prob, kickoff_time, home_form, away_form, sportsmole_prediction, si_prediction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [p.match_title, p.home_prob, p.draw_prob, p.away_prob, p.kickoff_time, p.home_form, p.away_form, p.sportsmole_prediction, p.si_prediction]
         }));
         await db.batch(insertStatements);
 
-        res.status(200).json({ success: true, message: "Synced perfectly with dynamic Sports Mole analytics." });
+        res.status(200).json({ success: true, message: "Synced correctly with multi-analyst capabilities." });
     } catch (error) {
-        console.error("Sync error:", error);
+        console.error(error);
         res.status(500).json({ success: false, error: error.message });
     }
 }
