@@ -152,6 +152,11 @@ export default async function handler(req, res) {
             // א) גירוד אוטומטי של Sports Mole
             const smPrediction = await scrapeSportsMolePrediction(match.home_team, match.away_team);
 
+            await db.execute({
+                sql: `INSERT OR IGNORE INTO SI_Manual_Inputs (match_title, si_prediction) VALUES (?, 'Pending')`,
+                args: [`${match.home_team} vs ${match.away_team}`]
+            });
+
             // ב) משיכת ההזנה הידנית שלך עבור Sports Illustrated מטבלת המעקף
             const siCheck = await db.execute({
                 sql: `SELECT si_prediction FROM SI_Manual_Inputs WHERE match_title = ? OR match_title = ?`,
