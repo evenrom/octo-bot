@@ -216,7 +216,10 @@ async function fetchGlobalStats() {
         console.error('Failed to fetch global stats:', error);
         renderGlobalStats({
             smStats: { spareRate: '--', strikeRate: '--' },
-            siStats: { spareRate: '--', strikeRate: '--' }
+            siStats: { spareRate: '--', strikeRate: '--' },
+            gpt55Stats: { spareRate: '--', strikeRate: '--' },
+            opusStats: { spareRate: '--', strikeRate: '--' },
+            fableStats: { spareRate: '--', strikeRate: '--' }
         });
     }
 }
@@ -226,17 +229,23 @@ function renderGlobalStats(data = {}) {
 
     const smStats = data?.smStats || {};
     const siStats = data?.siStats || {};
+    const gpt55Stats = data?.gpt55Stats || {};
+    const opusStats = data?.opusStats || {};
+    const fableStats = data?.fableStats || {};
 
-    const smSpareRate = Number.isFinite(Number(smStats?.spareRate)) ? Number(smStats.spareRate) : '--';
-    const smStrikeRate = Number.isFinite(Number(smStats?.strikeRate)) ? Number(smStats.strikeRate) : '--';
-    const siSpareRate = Number.isFinite(Number(siStats?.spareRate)) ? Number(siStats.spareRate) : '--';
-    const siStrikeRate = Number.isFinite(Number(siStats?.strikeRate)) ? Number(siStats.strikeRate) : '--';
+    const formatStatValue = (stats, key) => {
+        const value = Number(stats?.[key]);
+        return Number.isFinite(value) ? `${value}%` : '--';
+    };
 
     accuracyScoreEl.innerHTML = `
         <div class="flex items-center justify-center w-full rounded-full border border-white/10 bg-black/20 px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-            <div class="flex flex-col items-start text-left leading-tight">
-                <div class="text-[8px] sm:text-[9px] font-jetbrains-mono font-semibold text-[#39ff14]">SM | Spare: ${smSpareRate}% | Strike: ${smStrikeRate}%</div>
-                <div style="margin-top: 4px;" class="text-[8px] sm:text-[9px] font-jetbrains-mono font-semibold text-[#39ff14]">SI | Spare: ${siSpareRate}% | Strike: ${siStrikeRate}%</div>
+            <div class="flex flex-col items-start text-left leading-none w-full">
+                <div class="text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">SM | Sp: ${formatStatValue(smStats, 'spareRate')} St: ${formatStatValue(smStats, 'strikeRate')}</div>
+                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">SI | Sp: ${formatStatValue(siStats, 'spareRate')} St: ${formatStatValue(siStats, 'strikeRate')}</div>
+                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">GPT | Sp: ${formatStatValue(gpt55Stats, 'spareRate')} St: ${formatStatValue(gpt55Stats, 'strikeRate')}</div>
+                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">OPUS | Sp: ${formatStatValue(opusStats, 'spareRate')} St: ${formatStatValue(opusStats, 'strikeRate')}</div>
+                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">FABLE | Sp: ${formatStatValue(fableStats, 'spareRate')} St: ${formatStatValue(fableStats, 'strikeRate')}</div>
             </div>
         </div>
     `;
@@ -352,7 +361,10 @@ function createPredictionCard(prediction) {
         home_form,
         away_form,
         sportsmole_prediction,
-        si_prediction
+        si_prediction,
+        gpt55_prediction,
+        opus_prediction,
+        fable_prediction
     } = prediction;
 
     const clampPercent = (v) => {
@@ -360,6 +372,19 @@ function createPredictionCard(prediction) {
         if (!isFinite(n)) return 0;
         const rounded = Math.round(n);
         return Math.max(0, Math.min(100, rounded));
+    };
+
+    const renderPredictionRow = (label, value) => {
+        const normalizedValue = typeof value === 'string' ? value.trim() : '';
+        const isPlaceholder = !normalizedValue || ['No preview found', 'No input found', 'No data', 'Pending'].includes(normalizedValue);
+        const displayValue = isPlaceholder ? 'No data' : normalizedValue;
+
+        return `
+            <div class="mt-3 bg-black/20 rounded p-3 border border-white/5 text-sm text-[#dae2fd]">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">${label}</div>
+                <div class="text-sm ${isPlaceholder ? 'text-[#dae2fd]/50' : 'text-[#dae2fd]'}">${displayValue}</div>
+            </div>
+        `;
     };
 
     const homePercent = clampPercent(home_prob);
@@ -395,18 +420,11 @@ function createPredictionCard(prediction) {
                 <div class="bg-gray-500 h-2" style="width: ${drawPercent}%"></div>
                 <div class="bg-red-500 h-2" style="width: ${awayPercent}%"></div>
             </div>
-            ${sportsmole_prediction && sportsmole_prediction !== 'No preview found' ? `
-                <div class="mt-3 bg-black/20 rounded p-3 border border-white/5 text-sm text-[#dae2fd]">
-                    <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">Sports Mole Expert Pick</div>
-                    <div class="text-sm text-[#dae2fd]">${sportsmole_prediction}</div>
-                </div>
-            ` : ''}
-            ${si_prediction && si_prediction !== 'No input found' ? `
-                <div class="mt-3 bg-black/20 rounded p-3 border border-white/5 text-sm text-[#dae2fd]">
-                    <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">SPORTS ILLUSTRATED PICK</div>
-                    <div class="text-sm text-[#dae2fd]">${si_prediction}</div>
-                </div>
-            ` : ''}
+            ${renderPredictionRow('Sports Mole Expert Pick', sportsmole_prediction)}
+            ${renderPredictionRow('Sports Illustrated Pick', si_prediction)}
+            ${renderPredictionRow('GPT-5.5 Prediction', gpt55_prediction)}
+            ${renderPredictionRow('Opus Prediction', opus_prediction)}
+            ${renderPredictionRow('Fable Prediction', fable_prediction)}
         </div>
 
         <div class="mt-auto grid grid-cols-2 gap-2">

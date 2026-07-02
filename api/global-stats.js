@@ -5,9 +5,8 @@ const calculateRates = (rows, predictionField) => {
     
     for (const row of rows) {
         const predText = row[predictionField];
-        if (!predText || predText === 'No preview found' || predText === 'No input found') continue;
+        if (!predText || ['No preview found', 'No input found', 'No data', 'Pending'].includes(predText)) continue;
 
-        // תומך גם במקף רגיל וגם במקף ארוך של SI
         const scoreMatch = predText.match(/(\d+)\s*[-–]\s*(\d+)/);
         if (!scoreMatch) continue;
 
@@ -18,12 +17,10 @@ const calculateRates = (rows, predictionField) => {
 
         total++;
         
-        // Strike (בול בתוצאה)
         if (actHome === predHome && actAway === predAway) {
             strikes++;
         }
 
-        // Spare (כיוון נכון)
         const actOutcome = actHome > actAway ? 'H' : (actHome < actAway ? 'A' : 'D');
         const predOutcome = predHome > predAway ? 'H' : (predHome < predAway ? 'A' : 'D');
         if (actOutcome === predOutcome) {
@@ -41,13 +38,16 @@ export default async function handler(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const result = await db.execute("SELECT home_score, away_score, sportsmole_prediction, si_prediction FROM Results");
+        const result = await db.execute("SELECT home_score, away_score, sportsmole_prediction, si_prediction, gpt55_prediction, opus_prediction, fable_prediction FROM Results");
         const rows = result.rows || [];
 
-        const smStats = calculateRates(rows, 'sportsmole_prediction');
-        const siStats = calculateRates(rows, 'si_prediction');
-
-        res.status(200).json({ smStats, siStats });
+        res.status(200).json({
+            smStats: calculateRates(rows, 'sportsmole_prediction'),
+            siStats: calculateRates(rows, 'si_prediction'),
+            gpt55Stats: calculateRates(rows, 'gpt55_prediction'),
+            opusStats: calculateRates(rows, 'opus_prediction'),
+            fableStats: calculateRates(rows, 'fable_prediction')
+        });
     } catch (error) {
         console.error("Global stats error:", error);
         res.status(500).json({ error: error.message });
