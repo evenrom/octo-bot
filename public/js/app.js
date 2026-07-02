@@ -5,6 +5,12 @@ function formatDate(dateString) {
     return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const cleanToScoreOnly = (text) => {
+    if (!text || text === 'No data' || text === 'Pending') return text;
+    const match = String(text).match(/(\d+)\s*[-–]\s*(\d+)/);
+    return match ? `${match[1]}-${match[2]}` : text;
+};
+
 const codeToFullName = {
     'BRA': 'Brazil', 'ARG': 'Argentina', 'MAR': 'Morocco', 'HTI': 'Haiti',
     'FRA': 'France', 'GER': 'Germany', 'NED': 'Netherlands', 'POR': 'Portugal',
@@ -429,8 +435,8 @@ function createPredictionCard(prediction) {
         <div class="expert-predictions">
             <div class="expert-predictions__header">Expert predictions</div>
             <div class="expert-predictions__rows">
-                ${renderPredictionRow('Sports Mole', sanitizedSportsMolePrediction)}
-                ${renderPredictionRow('Sports Illustrated', si_prediction)}
+                ${renderPredictionRow('Sports Mole', cleanToScoreOnly(sanitizedSportsMolePrediction))}
+                ${renderPredictionRow('Sports Illustrated', cleanToScoreOnly(si_prediction))}
                 ${renderPredictionRow('GPT-5.5', gpt55_prediction)}
                 ${renderPredictionRow('Opus', opus_prediction)}
                 ${renderPredictionRow('Fable', fable_prediction)}
