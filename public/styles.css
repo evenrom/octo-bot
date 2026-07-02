@@ -212,9 +212,12 @@
 }
 
 .expert-prediction-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    white-space: nowrap !important;
     gap: 0.55rem;
     padding: 0.18rem 0;
     border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -253,9 +256,14 @@
         border-radius: 0.9rem;
     }
 
+    /* Keep expert prediction rows horizontal on mobile */
     .expert-prediction-row {
-        flex-direction: column;
-        align-items: flex-start;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        white-space: nowrap !important;
     }
 
     .expert-prediction-value {
