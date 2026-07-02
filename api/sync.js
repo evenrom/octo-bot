@@ -217,7 +217,7 @@ export default async function handler(req, res) {
                         list.push({ summary, outcome: aS > hS ? 'W' : (aS < hS ? 'L' : 'D') });
                     }
                 }
-                return list.length > 0 ? list.slice(-3) : [{ summary: 'No matches', outcome: '' }];
+                return list.length > 0 ? list.slice(-5) : [{ summary: 'No matches', outcome: '' }];
             };
 
             const matchId = `${match.home_team}_vs_${match.away_team}`;
