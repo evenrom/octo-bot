@@ -38,28 +38,20 @@
         <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 p-4">
             <h1 class="text-2xl font-space-grotesk font-bold tracking-tight text-blue-400">Octo-Bot</h1>
 
-            <div class="flex items-center gap-6">
-                <!-- Global Stats (expanded to occupy available space) -->
-                <div class="flex-1 flex items-center justify-end">
-                    <div id="accuracy-score" class="mt-1 w-full max-w-[360px]"></div>
-                </div>
-
-                <!-- Manual Triggers (compact) -->
-                <div class="flex gap-2 flex-none">
-                    <button id="btn-sync" class="bg-[#39ff14] text-black active:scale-95 duration-100 px-2 py-1 rounded font-semibold text-xs transition-all flex items-center justify-center gap-2 min-w-[88px] font-sora hover:bg-[#39ff14]/90">
-                        <span>SYNC</span>
-                    </button>
-                </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-sync" class="bg-[#39ff14] text-black active:scale-95 duration-100 px-2 py-1 rounded font-semibold text-xs transition-all flex items-center justify-center gap-2 min-w-[88px] font-sora hover:bg-[#39ff14]/90">
+                    <span>SYNC</span>
+                </button>
             </div>
         </div>
     </header>
 
     <main class="flex-grow container mx-auto">
 
-<section class="mt-8 mb-12 flex flex-col justify-center items-center">
+<section class="mt-8 mb-8 flex flex-col justify-center items-center">
     <canvas id="mascot-canvas" width="192" height="208" class="mx-auto cursor-pointer transition-transform duration-200 hover:scale-105"></canvas>
-    <div id="algorithm-status" class="mt-4 text-sm text-[#dae2fd]/70 font-sora">
-    </div>
+    <div id="algorithm-status" class="mt-3 min-h-4 text-sm text-[#dae2fd]/70 font-sora"></div>
+    <div id="accuracy-score" class="stats-widget mt-3"></div>
 </section>
     
         <!-- Loading State for Initial Data -->

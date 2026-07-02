@@ -239,13 +239,14 @@ function renderGlobalStats(data = {}) {
     };
 
     accuracyScoreEl.innerHTML = `
-        <div class="flex items-center justify-center w-full rounded-full border border-white/10 bg-black/20 px-3 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-            <div class="flex flex-col items-start text-left leading-none w-full">
-                <div class="text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">SM | Sp: ${formatStatValue(smStats, 'spareRate')} St: ${formatStatValue(smStats, 'strikeRate')}</div>
-                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">SI | Sp: ${formatStatValue(siStats, 'spareRate')} St: ${formatStatValue(siStats, 'strikeRate')}</div>
-                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">GPT | Sp: ${formatStatValue(gpt55Stats, 'spareRate')} St: ${formatStatValue(gpt55Stats, 'strikeRate')}</div>
-                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">OPUS | Sp: ${formatStatValue(opusStats, 'spareRate')} St: ${formatStatValue(opusStats, 'strikeRate')}</div>
-                <div class="mt-1 text-[7px] sm:text-[8px] font-jetbrains-mono font-semibold text-[#39ff14]">FABLE | Sp: ${formatStatValue(fableStats, 'spareRate')} St: ${formatStatValue(fableStats, 'strikeRate')}</div>
+        <div class="stats-shell">
+            <div class="stats-title">Analyst Accuracy</div>
+            <div class="stats-grid">
+                <div class="stats-pill"><span class="stats-label">SM</span><span class="stats-values">Sp ${formatStatValue(smStats, 'spareRate')} · St ${formatStatValue(smStats, 'strikeRate')}</span></div>
+                <div class="stats-pill"><span class="stats-label">SI</span><span class="stats-values">Sp ${formatStatValue(siStats, 'spareRate')} · St ${formatStatValue(siStats, 'strikeRate')}</span></div>
+                <div class="stats-pill"><span class="stats-label">GPT</span><span class="stats-values">Sp ${formatStatValue(gpt55Stats, 'spareRate')} · St ${formatStatValue(gpt55Stats, 'strikeRate')}</span></div>
+                <div class="stats-pill"><span class="stats-label">OPUS</span><span class="stats-values">Sp ${formatStatValue(opusStats, 'spareRate')} · St ${formatStatValue(opusStats, 'strikeRate')}</span></div>
+                <div class="stats-pill"><span class="stats-label">FABLE</span><span class="stats-values">Sp ${formatStatValue(fableStats, 'spareRate')} · St ${formatStatValue(fableStats, 'strikeRate')}</span></div>
             </div>
         </div>
     `;
@@ -282,10 +283,9 @@ function renderData(data) {
 
     // 1. Update Algorithm Status
     if (algorithmState) {
-        const updatedDate = formatDate(algorithmState.updated_at);
-        algorithmStatusEl.innerHTML = `Algorithm weights updated: ${updatedDate} | Odds: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.odds_weight}</span> | Momentum: <span class="font-jetbrains-mono text-[#dae2fd]">${algorithmState.momentum_weight}</span>`;
+        algorithmStatusEl.textContent = '';
     } else {
-        algorithmStatusEl.textContent = 'Algorithm state pending...';
+        algorithmStatusEl.textContent = '';
     }
 
     // 3. Render Data Grid
@@ -380,12 +380,16 @@ function createPredictionCard(prediction) {
         const displayValue = isPlaceholder ? 'No data' : normalizedValue;
 
         return `
-            <div class="mt-3 bg-black/20 rounded p-3 border border-white/5 text-sm text-[#dae2fd]">
-                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">${label}</div>
-                <div class="text-sm ${isPlaceholder ? 'text-[#dae2fd]/50' : 'text-[#dae2fd]'}">${displayValue}</div>
+            <div class="expert-prediction-row">
+                <span class="expert-prediction-label">${label}</span>
+                <span class="expert-prediction-value ${isPlaceholder ? 'text-[#dae2fd]/50' : 'text-[#dae2fd]'}">${displayValue}</span>
             </div>
         `;
     };
+
+    const sanitizedSportsMolePrediction = typeof sportsmole_prediction === 'string'
+        ? sportsmole_prediction.replace(/^We say:\s*/i, '').trim()
+        : '';
 
     const homePercent = clampPercent(home_prob);
     const drawPercent = clampPercent(draw_prob);
@@ -398,19 +402,19 @@ function createPredictionCard(prediction) {
     const awayFormHtml = renderFormHtml(awayFormData);
 
     const card = document.createElement('div');
-    card.className = 'bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-5 hover:border-[#39ff14]/40 transition-all flex flex-col';
+    card.className = 'match-card bg-white/5 backdrop-blur-[24px] border border-white/10 shadow-[inset_1px_1px_0px_rgba(255,255,255,0.05)] rounded-lg p-4 hover:border-[#39ff14]/40 transition-all flex flex-col';
 
     card.innerHTML = `
-        <div class="text-xs text-[#dae2fd]/70 mb-3 border-b border-white/10 pb-2 font-sora flex justify-between">
+        <div class="text-[11px] text-[#dae2fd]/70 mb-2 border-b border-white/10 pb-2 font-sora flex justify-between">
             <span>${formatDate(kickoff_time)}</span>
         </div>
 
-        <div class="mb-4">
-            <h3 class="text-xl font-space-grotesk font-bold text-center text-white mb-2">${match_title || 'TBD'}</h3>
+        <div class="mb-2">
+            <h3 class="text-lg font-space-grotesk font-bold text-center text-white">${match_title || 'TBD'}</h3>
         </div>
 
-        <div class="mb-4">
-            <div class="flex justify-between text-xs mb-1 font-sora">
+        <div class="mb-2">
+            <div class="flex justify-between text-[11px] mb-1 font-sora">
                 <span class="text-blue-400">Home ${homePercent}%</span>
                 <span class="text-gray-400">Draw ${drawPercent}%</span>
                 <span class="text-red-400">Away ${awayPercent}%</span>
@@ -420,20 +424,26 @@ function createPredictionCard(prediction) {
                 <div class="bg-gray-500 h-2" style="width: ${drawPercent}%"></div>
                 <div class="bg-red-500 h-2" style="width: ${awayPercent}%"></div>
             </div>
-            ${renderPredictionRow('Sports Mole Expert Pick', sportsmole_prediction)}
-            ${renderPredictionRow('Sports Illustrated Pick', si_prediction)}
-            ${renderPredictionRow('GPT-5.5 Prediction', gpt55_prediction)}
-            ${renderPredictionRow('Opus Prediction', opus_prediction)}
-            ${renderPredictionRow('Fable Prediction', fable_prediction)}
         </div>
 
-        <div class="mt-auto grid grid-cols-2 gap-2">
-            <div class="bg-black/20 rounded p-3 border border-white/5">
-                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-3 font-sora">Home Team Form</div>
+        <div class="expert-predictions">
+            <div class="expert-predictions__header">Expert predictions</div>
+            <div class="expert-predictions__rows">
+                ${renderPredictionRow('Sports Mole', sanitizedSportsMolePrediction)}
+                ${renderPredictionRow('Sports Illustrated', si_prediction)}
+                ${renderPredictionRow('GPT-5.5', gpt55_prediction)}
+                ${renderPredictionRow('Opus', opus_prediction)}
+                ${renderPredictionRow('Fable', fable_prediction)}
+            </div>
+        </div>
+
+        <div class="mt-2 grid grid-cols-2 gap-2">
+            <div class="bg-black/20 rounded p-2 border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">Home Team Form</div>
                 ${homeFormHtml}
             </div>
-            <div class="bg-black/20 rounded p-3 border border-white/5">
-                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-3 font-sora">Away Team Form</div>
+            <div class="bg-black/20 rounded p-2 border border-white/5">
+                <div class="text-[10px] text-[#dae2fd]/50 uppercase tracking-wide mb-2 font-sora">Away Team Form</div>
                 ${awayFormHtml}
             </div>
         </div>
