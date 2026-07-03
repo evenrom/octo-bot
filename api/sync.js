@@ -63,11 +63,19 @@ const scrapeNetlifyAgents = async () => {
             const fablePred = parts[4];       // Fable
             
             // חילוץ שתי המדינות בעברית מתוך מבנה של "קבוצהא–קבוצהב"
-            const teamsMatch = matchNameHebrew.match(/^([^\s–]+)–([^\s–\s]+)/);
+            const teamsMatch = matchNameHebrew.match(/^([^–]+)–(.+)/);
             if (!teamsMatch) continue;
             
-            const homeEng = hebrewToEnglish[teamsMatch[1]];
-            const awayEng = hebrewToEnglish[teamsMatch[2]];
+            const homeEng = hebrewToEnglish[teamsMatch[1].trim()];
+            let awayEng = null;
+            const remaining = teamsMatch[2].trim();
+            const sortedKeys = Object.keys(hebrewToEnglish).sort((a, b) => b.length - a.length);
+            for (const key of sortedKeys) {
+                if (remaining.startsWith(key) && (remaining.length === key.length || remaining[key.length] === ' ')) {
+                    awayEng = hebrewToEnglish[key];
+                    break;
+                }
+            }
             
             if (homeEng && awayEng) {
                 const key = `${homeEng}_vs_${awayEng}`;
@@ -106,8 +114,16 @@ const scrapeSportsMolePrediction = async (homeTeam, awayTeam) => {
             const pageResponse = await fetch(`https://r.jina.ai/${targetUrl}`);
             if (pageResponse.ok) {
                 const pageText = await pageResponse.text();
-                const matchPrediction = pageText.match(/We say:[^\n]+/i);
-                return matchPrediction ? matchPrediction[0].trim() : null;
+                const predictions = [...pageText.matchAll(/We say:[^\n]+/ig)];
+                let matchPrediction = null;
+                for (const p of predictions) {
+                    const predText = p[0];
+                    if (predText.toLowerCase().includes(homeTeam.toLowerCase()) || predText.toLowerCase().includes(awayTeam.toLowerCase())) {
+                        matchPrediction = predText;
+                        break;
+                    }
+                }
+                return matchPrediction ? matchPrediction.trim() : null;
             }
         }
     } catch (e) { console.error(e); }
