@@ -51,6 +51,12 @@ const scrapeNetlifyAgents = async () => {
         const text = await response.text();
         const lines = text.split('\n');
         
+        // Lazy caching the sorted keys once
+        if (!scrapeNetlifyAgents.sortedKeys) {
+            scrapeNetlifyAgents.sortedKeys = Object.keys(hebrewToEnglish).sort((a, b) => b.length - a.length);
+        }
+        const sortedKeys = scrapeNetlifyAgents.sortedKeys;
+
         for (const line of lines) {
             if (!line.includes('|') || line.includes('---') || line.includes('משחק')) continue;
             
@@ -67,9 +73,11 @@ const scrapeNetlifyAgents = async () => {
             if (!teamsMatch) continue;
             
             const homeEng = hebrewToEnglish[teamsMatch[1].trim()];
+            if (!homeEng) continue; // Early exit
+
             let awayEng = null;
             const remaining = teamsMatch[2].trim();
-            const sortedKeys = Object.keys(hebrewToEnglish).sort((a, b) => b.length - a.length);
+
             for (const key of sortedKeys) {
                 if (remaining.startsWith(key) && (remaining.length === key.length || remaining[key.length] === ' ')) {
                     awayEng = hebrewToEnglish[key];
@@ -116,10 +124,14 @@ const scrapeSportsMolePrediction = async (homeTeam, awayTeam) => {
                 const pageText = await pageResponse.text();
                 const predictions = [...pageText.matchAll(/We say:[^\n]+/ig)];
                 let matchPrediction = null;
+
+                const homeLower = (homeTeam || '').toLowerCase();
+                const awayLower = (awayTeam || '').toLowerCase();
+
                 for (const p of predictions) {
-                    const predText = p[0];
-                    if (predText.toLowerCase().includes(homeTeam.toLowerCase()) || predText.toLowerCase().includes(awayTeam.toLowerCase())) {
-                        matchPrediction = predText;
+                    const predText = p[0].toLowerCase();
+                    if (predText.includes(homeLower) || predText.includes(awayLower)) {
+                        matchPrediction = p[0];
                         break;
                     }
                 }
