@@ -1,8 +1,8 @@
-# Database Schema Specification (With Multi-Agent Predictions)
+# Database Schema Specification (Hotfix v1.1)
 
 ## Table: Results
 Tracks definitive match outcomes and historical performance scores for all predictive agents.
-- `match_id` (TEXT, PRIMARY KEY): Format `${Home_Team}_vs_${Away_Team}` (English)
+- `match_id` (TEXT, PRIMARY KEY): Format `${Home_Team}_vs_${Away_Team}` (English, standardized naming)
 - `home_score` (INTEGER, NOT NULL)
 - `away_score` (INTEGER, NOT NULL)
 - `accuracy_points` (INTEGER, DEFAULT 1)
@@ -13,14 +13,14 @@ Tracks definitive match outcomes and historical performance scores for all predi
 - `fable_prediction` (TEXT, DEFAULT NULL)
 
 ## Table: Predictions
-Stores the active 4 upcoming tournament matches with high-level statistics and compiled predictions.
+Stores the active upcoming tournament matches with high-level statistics and compiled predictions.
 - `match_title` (TEXT, PRIMARY KEY): Format `${Home_Team} vs ${Away_Team}` (English)
 - `home_prob` (INTEGER, NOT NULL)
 - `draw_prob` (INTEGER, NOT NULL)
 - `away_prob` (INTEGER, NOT NULL)
 - `kickoff_time` (TEXT, NOT NULL)
-- `home_form` (TEXT, NOT NULL): JSON Array string
-- `away_form` (TEXT, NOT NULL): JSON Array string
+- `home_form` (TEXT, NOT NULL): JSON Array string (Last 5 matches)
+- `away_form` (TEXT, NOT NULL): JSON Array string (Last 5 matches)
 - `sportsmole_prediction` (TEXT, DEFAULT NULL)
 - `si_prediction` (TEXT, DEFAULT NULL)
 - `gpt55_prediction` (TEXT, DEFAULT NULL)
