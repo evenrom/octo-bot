@@ -6,18 +6,24 @@ const SPORT = 'soccer_fifa_world_cup';
 
 // מילון מקיף לתרגום שמות המדינות מהאתר בעברית לבסיס הנתונים באנגלית
 const hebrewToEnglish = {
-    'ספרד': 'Spain', 'אוסטריה': 'Austria', 'פורטוגל': 'Portugal', 'קרואטיה': 'Croatia',
-    'שווייץ': 'Switzerland', 'אלג\'יריה': 'Algeria', 'אלגריה': 'Algeria', 'אוסטרליה': 'Australia', 
-    'מצרים': 'Egypt', 'ארגנטינה': 'Argentina', 'כף ורדה': 'Cape Verde', 'קולומביה': 'Colombia', 
-    'גאנה': 'Ghana', 'ברזיל': 'Brazil', 'מרוקו': 'Morocco', 'האיטי': 'Haiti', 'סקוטלנד': 'Scotland',
-    'גרמניה': 'Germany', 'קוראסאו': 'Curaçao', 'קורסאו': 'Curaçao', 'יפן': 'Japan',
-    'הולנד': 'Netherlands', 'חוף השנהב': 'Ivory Coast', 'טוניסיה': 'Tunisia', 'בלגיה': 'Belgium',
-    'איראן': 'Iran', 'ניו זילנד': 'New Zealand', 'סנגל': 'Senegal', 'עיראק': 'Iraq',
-    'ירדן': 'Jordan', 'סעודיה': 'Saudi Arabia', 'אורוגוואי': 'Uruguay', 'אנגליה': 'England',
-    'דרום קוריאה': 'South Korea', 'קוריאה': 'South Korea', 'קנדה': 'Canada', 'צ\'כיה': 'Czech Republic', 
-    'דרום אפריקה': 'South Africa', 'ארצות הברית': 'United States', 'ארה"ב': 'USA', 'פרו': 'Peru', 
-    'פנמה': 'Panama', 'אוזבקיסטן': 'Uzbekistan', 'בוסניה': 'Bosnia & Herzegovina', 
-    'בוסניה והרצגובינה': 'Bosnia & Herzegovina', 'קטאר': 'Qatar'
+    'קנדה': 'Canada',
+    'מרוקו': 'Morocco',
+    'צרפת': 'France',
+    'פרגוואי': 'Paraguay',
+    'ברזיל': 'Brazil',
+    'נורבגיה': 'Norway',
+    'מקסיקו': 'Mexico',
+    'אנגליה': 'England',
+    'ספרד': 'Spain',
+    'פורטוגל': 'Portugal',
+    'ארצות הברית': 'USA',
+    'ארה"ב': 'USA',
+    'בלגיה': 'Belgium',
+    'שוויץ': 'Switzerland',
+    'שווייץ': 'Switzerland',
+    'קולומביה': 'Colombia',
+    'מצרים': 'Egypt',
+    'ארגנטינה': 'Argentina'
 };
 
 const commonNameToCode = {
@@ -68,15 +74,20 @@ const scrapeNetlifyAgents = async () => {
             const opusPred = parts[3];        // Opus
             const fablePred = parts[4];       // Fable
             
-            // חילוץ שתי המדינות בעברית מתוך מבנה של "קבוצהא–קבוצהב"
-            const teamsMatch = matchNameHebrew.match(/^([^–]+)–(.+)/);
-            if (!teamsMatch) continue;
-            
-            const homeEng = hebrewToEnglish[teamsMatch[1].trim()];
+            // חילוץ שתי המדינות בעברית מתוך מבנה של "קבוצהא–קבוצהב" או קבוצהא-קבוצהב
+            const teamsMatch = matchNameHebrew.split(/\s*[-–\n]\s*/).filter(Boolean);
+            if (teamsMatch.length < 2) continue;
+
+            let homeHeb = teamsMatch[0]?.trim() || '';
+            let remaining = teamsMatch[1]?.trim() || '';
+
+            homeHeb = homeHeb.replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '').trim();
+            remaining = remaining.replace(/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '').trim();
+
+            const homeEng = hebrewToEnglish[homeHeb];
             if (!homeEng) continue; // Early exit
 
             let awayEng = null;
-            const remaining = teamsMatch[2].trim();
 
             for (const key of sortedKeys) {
                 if (remaining.startsWith(key) && (remaining.length === key.length || remaining[key.length] === ' ')) {
