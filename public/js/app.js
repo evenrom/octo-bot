@@ -28,6 +28,38 @@ const codeToFullName = {
     'COD': 'DR Congo', 'PAN': 'Panama', 'UZB': 'Uzbekistan'
 };
 
+const teamCodeLookup = {
+    'Brazil': 'BRA', 'Argentina': 'ARG', 'Morocco': 'MAR', 'Haiti': 'HTI',
+    'France': 'FRA', 'Germany': 'GER', 'Netherlands': 'NED', 'Portugal': 'POR',
+    'Spain': 'ESP', 'England': 'ENG', 'United States': 'USA', 'USA': 'USA',
+    'Belgium': 'BEL', 'Croatia': 'CRO', 'Denmark': 'DEN', 'Switzerland': 'SUI',
+    'Sweden': 'SWE', 'Norway': 'NOR', 'Italy': 'ITA', 'Poland': 'POL',
+    'Mexico': 'MEX', 'Canada': 'CAN', 'Japan': 'JPN', 'South Korea': 'KOR',
+    'Australia': 'AUS', 'Saudi Arabia': 'KSA', 'Iran': 'IRN', 'Ecuador': 'ECU',
+    'Uruguay': 'URU', 'Colombia': 'COL', 'Senegal': 'SEN', 'Tunisia': 'TUN',
+    'Egypt': 'EGY', 'Ghana': 'GHA', 'Qatar': 'QAT', 'Bosnia & Herzegovina': 'BIH',
+    'Czech Republic': 'CZE', 'South Africa': 'RSA', 'Austria': 'AUT', 'Jordan': 'JOR',
+    'Algeria': 'ALG', 'Iraq': 'IRQ', 'New Zealand': 'NZL', 'Cape Verde': 'CPV',
+    'Ivory Coast': 'CIV', 'Ivory_Coast': 'CIV', 'South_Africa': 'RSA', 'Curaçao': 'CUW',
+    'Turkey': 'TUR', 'Scotland': 'SCO', 'Paraguay': 'PAR', 'DR Congo': 'COD',
+    'Panama': 'PAN', 'Uzbekistan': 'UZB'
+};
+
+const resolveTeamCode = (value) => {
+    if (!value && value !== 0) return '';
+
+    const rawValue = String(value).trim();
+    if (!rawValue) return '';
+
+    const variants = [rawValue, rawValue.replace(/\s+/g, '_'), rawValue.replace(/_/g, ' ')];
+    for (const variant of variants) {
+        if (teamCodeLookup[variant]) return teamCodeLookup[variant];
+    }
+
+    const compact = rawValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return compact.length === 3 ? compact : '';
+};
+
 // Elements
 const accuracyScoreEl = document.getElementById('accuracy-score');
 const dataGridEl = document.getElementById('data-grid');
@@ -333,8 +365,8 @@ function renderFormHtml(formArray) {
         const outcome = match?.outcome || '';
         const summaryText = match?.summary || '';
         const parts = String(summaryText).trim().split(/\s+/);
-        const homeCode = parts[0] || '';
-        const awayCode = parts[2] || '';
+        const homeCode = resolveTeamCode(parts[0]) || '';
+        const awayCode = resolveTeamCode(parts[2]) || '';
         const homeFullName = codeToFullName[homeCode] || homeCode;
         const awayFullName = codeToFullName[awayCode] || awayCode;
         const tooltipText = homeFullName && awayFullName ? `${homeFullName} vs ${awayFullName}` : '';

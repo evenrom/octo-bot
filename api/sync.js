@@ -38,14 +38,20 @@ const commonNameToCode = {
     'Egypt': 'EGY', 'Ghana': 'GHA', 'Qatar': 'QAT', 'Bosnia & Herzegovina': 'BIH',
     'Czech Republic': 'CZE', 'South Africa': 'RSA', 'Austria': 'AUT', 'Jordan': 'JOR',
     'Algeria': 'ALG', 'Iraq': 'IRQ', 'New Zealand': 'NZL', 'Cape Verde': 'CPV',
-    'Ivory Coast': 'CIV', 'Curaçao': 'CUW', 'Turkey': 'TUR', 'Scotland': 'SCO',
+    'Ivory Coast': 'CIV', 'Ivory_Coast': 'CIV', 'South_Africa': 'RSA', 'Curaçao': 'CUW', 'Turkey': 'TUR', 'Scotland': 'SCO',
     'Paraguay': 'PAR', 'DR Congo': 'COD', 'Panama': 'PAN', 'Uzbekistan': 'UZB'
 };
 
+const normalizeTeamToken = (name) => String(name || '').trim().replace(/\s+/g, '_');
+
 const toThreeLetter = (name) => {
     if (!name) return 'TBD';
-    if (commonNameToCode[name]) return commonNameToCode[name];
-    return name.replace(/[^A-Za-z ]/g, '').trim().slice(0, 3).toUpperCase();
+    const raw = String(name).trim();
+    const variants = [raw, normalizeTeamToken(raw), normalizeTeamToken(raw).replace(/_/g, ' ')];
+    for (const variant of variants) {
+        if (commonNameToCode[variant]) return commonNameToCode[variant];
+    }
+    return raw.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
 };
 
 const scrapeNetlifyAgents = async () => {
@@ -240,9 +246,11 @@ export default async function handler(req, res) {
             const buildForm = (teamName) => {
                 const teamCode = toThreeLetter(teamName);
                 const list = [];
-                for (const row of dbRows) {
-                    const parts = row.match_id.split('_vs_');
-                    if (parts.length !== 2) continue;
+                const historyRows = (dbRows || []).slice(-5);
+                for (const row of historyRows) {
+                    const rawParts = String(row.match_id || '').split('_vs_');
+                    if (rawParts.length !== 2) continue;
+                    const parts = rawParts.map(part => normalizeTeamToken(part));
                     const hCode = toThreeLetter(parts[0]);
                     const aCode = toThreeLetter(parts[1]);
                     if (hCode !== teamCode && aCode !== teamCode) continue;
