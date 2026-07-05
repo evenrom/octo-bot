@@ -228,7 +228,7 @@ export default async function handler(req, res) {
         const upcomingMatches = allMatches.slice(0, 4);
 
         const localHistory = await db.execute("SELECT match_id, home_score, away_score FROM Results");
-        const dbRows = localHistory.rows || [];
+        const dbRows = (localHistory.rows || []).slice(-5);
         const predictions = [];
 
         for (const match of upcomingMatches) {

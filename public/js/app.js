@@ -381,7 +381,7 @@ function renderFormHtml(formArray) {
         return `<div class="text-[11px] text-[#dae2fd]/50">No matches</div>`;
     }
 
-    const renderedItems = safeFormArray.slice(0, 3).map(match => {
+    const renderedItems = safeFormArray.slice(0, 5).map(match => {
         const outcome = match?.outcome || '';
         const summaryText = match?.summary || '';
         const parts = String(summaryText).trim().split(/\s+/).filter(Boolean);
