@@ -43,12 +43,12 @@ const commonNameToCode = {
 };
 
 const normalizeTeamToken = (name) => String(name || '').trim().replace(/\s+/g, '_');
-const normalize = (name) => name ? String(name).replace(/[\s_]+/g, ' ').trim().toLowerCase() : '';
 
 const toThreeLetter = (name) => {
     if (!name) return 'TBD';
     const raw = String(name).trim();
-    const variants = [raw, normalizeTeamToken(raw), normalizeTeamToken(raw).replace(/_/g, ' '), normalize(raw)];
+    const normalized = String(name || '').trim().replace(/[\s_]+/g, ' ').toLowerCase();
+    const variants = [raw, normalizeTeamToken(raw), normalizeTeamToken(raw).replace(/_/g, ' '), normalized];
     for (const variant of variants) {
         if (commonNameToCode[variant]) return commonNameToCode[variant];
     }
@@ -228,7 +228,7 @@ export default async function handler(req, res) {
         const upcomingMatches = allMatches.slice(0, 4);
 
         const localHistory = await db.execute("SELECT match_id, home_score, away_score FROM Results");
-        const dbRows = (localHistory.rows || []).slice(-5);
+        const dbRows = localHistory.rows || [];
         const predictions = [];
 
         for (const match of upcomingMatches) {
@@ -245,7 +245,7 @@ export default async function handler(req, res) {
             const draw_prob = 100 - home_prob - away_prob;
 
             const buildForm = (teamName) => {
-                const targetName = normalize(teamName);
+                const targetName = String(teamName || '').trim();
                 const list = [];
 
                 for (const row of dbRows || []) {
@@ -253,10 +253,8 @@ export default async function handler(req, res) {
                     if (rawParts.length !== 2) continue;
 
                     const [homeTeam, awayTeam] = rawParts.map(part => part.trim());
-                    const homeName = normalize(homeTeam);
-                    const awayName = normalize(awayTeam);
-                    const isHomeTarget = homeName === targetName;
-                    const isAwayTarget = awayName === targetName;
+                    const isHomeTarget = homeTeam === targetName;
+                    const isAwayTarget = awayTeam === targetName;
                     if (!isHomeTarget && !isAwayTarget) continue;
 
                     const hCode = toThreeLetter(homeTeam);
@@ -272,7 +270,7 @@ export default async function handler(req, res) {
                     }
                 }
 
-                return list.length > 0 ? list.slice(-5) : [{ summary: 'No matches', outcome: '' }];
+                return list.length > 0 ? list.slice(-3) : [{ summary: 'No matches', outcome: '' }];
             };
 
             const matchId = `${match.home_team}_vs_${match.away_team}`;
