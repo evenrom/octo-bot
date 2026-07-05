@@ -43,11 +43,12 @@ const commonNameToCode = {
 };
 
 const normalizeTeamToken = (name) => String(name || '').trim().replace(/\s+/g, '_');
+const normalize = (name) => name ? String(name).replace(/[\s_]+/g, ' ').trim().toLowerCase() : '';
 
 const toThreeLetter = (name) => {
     if (!name) return 'TBD';
     const raw = String(name).trim();
-    const variants = [raw, normalizeTeamToken(raw), normalizeTeamToken(raw).replace(/_/g, ' ')];
+    const variants = [raw, normalizeTeamToken(raw), normalizeTeamToken(raw).replace(/_/g, ' '), normalize(raw)];
     for (const variant of variants) {
         if (commonNameToCode[variant]) return commonNameToCode[variant];
     }
@@ -244,26 +245,33 @@ export default async function handler(req, res) {
             const draw_prob = 100 - home_prob - away_prob;
 
             const buildForm = (teamName) => {
-                const teamCode = toThreeLetter(teamName);
+                const targetName = normalize(teamName);
                 const list = [];
-                const historyRows = (dbRows || []).slice(-5);
-                for (const row of historyRows) {
+
+                for (const row of dbRows || []) {
                     const rawParts = String(row.match_id || '').split('_vs_');
                     if (rawParts.length !== 2) continue;
-                    const parts = rawParts.map(part => normalizeTeamToken(part));
-                    const hCode = toThreeLetter(parts[0]);
-                    const aCode = toThreeLetter(parts[1]);
-                    if (hCode !== teamCode && aCode !== teamCode) continue;
 
+                    const [homeTeam, awayTeam] = rawParts.map(part => part.trim());
+                    const homeName = normalize(homeTeam);
+                    const awayName = normalize(awayTeam);
+                    const isHomeTarget = homeName === targetName;
+                    const isAwayTarget = awayName === targetName;
+                    if (!isHomeTarget && !isAwayTarget) continue;
+
+                    const hCode = toThreeLetter(homeTeam);
+                    const aCode = toThreeLetter(awayTeam);
                     const hS = Number(row.home_score);
                     const aS = Number(row.away_score);
                     const summary = `${hCode} ${hS}-${aS} ${aCode}`;
-                    if (hCode === teamCode) {
+
+                    if (isHomeTarget) {
                         list.push({ summary, outcome: hS > aS ? 'W' : (hS < aS ? 'L' : 'D') });
                     } else {
                         list.push({ summary, outcome: aS > hS ? 'W' : (aS < hS ? 'L' : 'D') });
                     }
                 }
+
                 return list.length > 0 ? list.slice(-5) : [{ summary: 'No matches', outcome: '' }];
             };
 

@@ -28,6 +28,16 @@ const codeToFullName = {
     'COD': 'DR Congo', 'PAN': 'Panama', 'UZB': 'Uzbekistan'
 };
 
+const shortCodes = {
+    'brazil': 'BRA', 'norway': 'NOR', 'mexico': 'MEX', 'england': 'ENG',
+    'france': 'FRA', 'paraguay': 'PAR', 'canada': 'CAN', 'morocco': 'MAR',
+    'usa': 'USA', 'belgium': 'BEL', 'switzerland': 'SUI', 'colombia': 'COL',
+    'egypt': 'EGY', 'argentina': 'ARG', 'japan': 'JPN', 'ivory coast': 'CIV',
+    'south africa': 'RSA', 'sweden': 'SWE', 'netherlands': 'NED', 'haiti': 'HTI',
+    'bosnia': 'BIH', 'senegal': 'SEN', 'iraq': 'IRQ', 'jordan': 'JOR', 'scotland': 'SCO',
+    'uruguay': 'URU', 'saudi arabia': 'KSA', 'germany': 'GER', 'austria': 'AUT', 'croatia': 'CRO', 'algeria': 'ALG'
+};
+
 const teamCodeLookup = {
     'Brazil': 'BRA', 'Argentina': 'ARG', 'Morocco': 'MAR', 'Haiti': 'HTI',
     'France': 'FRA', 'Germany': 'GER', 'Netherlands': 'NED', 'Portugal': 'POR',
@@ -45,13 +55,18 @@ const teamCodeLookup = {
     'Panama': 'PAN', 'Uzbekistan': 'UZB'
 };
 
+const normalizeLookupKey = (value) => String(value || '').replace(/_/g, ' ').trim().toLowerCase();
+
 const resolveTeamCode = (value) => {
     if (!value && value !== 0) return '';
 
     const rawValue = String(value).trim();
     if (!rawValue) return '';
 
-    const variants = [rawValue, rawValue.replace(/\s+/g, '_'), rawValue.replace(/_/g, ' ')];
+    const normalizedKey = normalizeLookupKey(rawValue);
+    if (shortCodes[normalizedKey]) return shortCodes[normalizedKey];
+
+    const variants = [rawValue, rawValue.replace(/\s+/g, '_'), rawValue.replace(/_/g, ' '), normalizedKey];
     for (const variant of variants) {
         if (teamCodeLookup[variant]) return teamCodeLookup[variant];
     }
@@ -361,10 +376,15 @@ function parseFormData(formData) {
 }
 
 function renderFormHtml(formArray) {
-    const renderedItems = formArray.slice(0, 3).map(match => {
+    const safeFormArray = Array.isArray(formArray) ? formArray : [];
+    if (!safeFormArray.length) {
+        return `<div class="text-[11px] text-[#dae2fd]/50">No matches</div>`;
+    }
+
+    const renderedItems = safeFormArray.slice(0, 3).map(match => {
         const outcome = match?.outcome || '';
         const summaryText = match?.summary || '';
-        const parts = String(summaryText).trim().split(/\s+/);
+        const parts = String(summaryText).trim().split(/\s+/).filter(Boolean);
         const homeCode = resolveTeamCode(parts[0]) || '';
         const awayCode = resolveTeamCode(parts[2]) || '';
         const homeFullName = codeToFullName[homeCode] || homeCode;
@@ -381,10 +401,6 @@ function renderFormHtml(formArray) {
             <div class="custom-tooltip-wrapper form-indicator ${outcomeClass} w-auto text-[10px] font-mono px-2 py-1 rounded"${tooltipAttr}>${summaryText}</div>
         `;
     }).join('');
-
-    if (!renderedItems) {
-        return `<div class="text-[11px] text-[#dae2fd]/50">No recent matches</div>`;
-    }
 
     return `<div class="form-container">${renderedItems}</div>`;
 }
